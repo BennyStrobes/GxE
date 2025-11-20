@@ -225,6 +225,8 @@ parser.add_argument('--variance-scaling-factor', default=5.0, type=float,
 					help='scaling of variances')
 parser.add_argument('--min-snps-per-gene', default=50, type=int,
 					help='Minimum number of snps per gene. else we throw out the gene.')
+parser.add_argument('--random-seed', default=1, type=int,
+					help='Random seed.')
 args = parser.parse_args()
 
 raw_pa_scaling_factors = np.asarray([0.0, .05, .1, .2, .5])
@@ -232,6 +234,9 @@ pa_scaling_factors = 1.0 + ((args.variance_scaling_factor)*np.copy(raw_pa_scalin
 
 print('SIMULATING PROPORTIONAL AMPLIFICATION DATA')
 print(args)
+
+# Set seed
+np.random.seed(args.random_seed)
 
 #######################
 # Get list of gene's tss to sample over

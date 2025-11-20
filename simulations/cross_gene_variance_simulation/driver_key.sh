@@ -11,6 +11,9 @@ gene_tss_file="/lab-share/CHIP-Strober-e2/Public/ben/s2e_uncertainty/rsage_testi
 # Protein coding gene file
 protein_coding_gene_file="/lab-share/CHIP-Strober-e2/Public/ben/s2e_uncertainty/rsage_testing/input_data/protein_coding_genes.csv"
 
+# Directory containing PA-H2 code
+pa_h2_code_dir="/home/ch271704/tools/PA-h2/"
+
 
 
 #######################
@@ -35,14 +38,41 @@ visualization_results_dir=${output_stem}"visualization_results/"
 ##############################
 ###### Simulation parameters
 # Simulation sample sizes
-sample_size_arr=("100" "200" "300" "400" "450")
+sample_size_arr=("100" "300" "450")
+# Type of simulation
+simulation_type="total_PA"
+if false; then
+for simulation_number in {1..100}; do
+    sbatch simulate_eqtl_data_shell.sh $simulation_number $simulation_type $simulated_data_dir $gene_tss_file $protein_coding_gene_file $plink2_genotype_stem
+done
+fi
+
+
+
+##############################
+####### Run Inference
+##############################
+###### Simulation parameters
+# Simulation sample sizes
+sample_size_arr=("100" "300" "450")
 # Type of simulation
 simulation_type="total_PA"
 
 simulation_number="1"
 if false; then
-sbatch simulate_eqtl_data_shell.sh $simulation_number $sample_size_arr $simulation_type $simulated_data_dir $gene_tss_file $protein_coding_gene_file $plink2_genotype_stem
+sh run_pa_h2_on_simulated_data.sh $simulation_number $simulation_type $simulated_data_dir $plink2_genotype_stem $simulation_results_dir $pa_h2_code_dir
 fi
+
+
+
+
+
+
+
+
+
+
+
 
 
 
