@@ -3,7 +3,7 @@
 #################
 # Genotype data
 # Hg19 1KG files from o2: /n/groups/price/ldsc/reference_files/1000G_EUR_Phase3/plink_files/
-plink2_genotype_stem="/lab-share/CHIP-Strober-e2/Public/1000G_Phase3/1000G.EUR.QC."
+plink2_genotype_stem="/lab-share/CHIP-Strober-e2/Public/1000G_Phase3/hg19/1000G.EUR.QC."
 
 # Gene tss file
 gene_tss_file="/lab-share/CHIP-Strober-e2/Public/ben/s2e_uncertainty/rsage_testing/input_data/gene-ids-and-positions.tsv"
@@ -28,6 +28,9 @@ simulated_data_dir=${output_stem}"simulation_data/"
 # Output directory containing simulation results
 simulation_results_dir=${output_stem}"simulation_results/"
 
+# Output directory containing organized simulation results
+organized_simulation_results_dir=${output_stem}"organized_simulation_results/"
+
 # Output directory containing visualizations of simulated data
 visualization_results_dir=${output_stem}"visualization_results/"
 
@@ -38,7 +41,7 @@ visualization_results_dir=${output_stem}"visualization_results/"
 ##############################
 ###### Simulation parameters
 # Simulation sample sizes
-sample_size_arr=("100" "300" "450")
+sample_size_arr=("100" "300")
 # Type of simulation
 simulation_type="total_PA"
 if false; then
@@ -49,24 +52,27 @@ fi
 
 
 
+
 ##############################
 ####### Run Inference
 ##############################
 ###### Simulation parameters
 # Simulation sample sizes
-sample_size_arr=("100" "300" "450")
+sample_size_arr=("100" "300")
 # Type of simulation
 simulation_type="total_PA"
-
-simulation_number="1"
 if false; then
-sh run_pa_h2_on_simulated_data.sh $simulation_number $simulation_type $simulated_data_dir $plink2_genotype_stem $simulation_results_dir $pa_h2_code_dir
+for simulation_number in {1..100}; do
+	sbatch run_pa_h2_on_simulated_data.sh $simulation_number $simulation_type $simulated_data_dir $plink2_genotype_stem $simulation_results_dir $pa_h2_code_dir
+done
 fi
 
 
 
 
-
+source ~/.bashrc
+conda activate PA-h2
+python organize_pa_h2_simulation_results.py $simulation_type $simulated_data_dir $simulation_results_dir $organized_simulation_results_dir
 
 
 

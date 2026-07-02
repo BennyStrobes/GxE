@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -t 0-8:00                         # Runtime in D-HH:MM format
+#SBATCH -t 0-5:50                         # Runtime in D-HH:MM format
 #SBATCH -p bch-compute                        # Partition to run in
 #SBATCH --mem=3GB 
 
@@ -18,7 +18,8 @@ conda activate PA-h2
 
 
 # Simulation sample sizes
-sample_size_arr=("100" "300" "450")
+sample_size_arr=("100" "300")
+
 
 for sample_size in "${sample_size_arr[@]}"; do
   echo $sample_size"_"${simulation_number}

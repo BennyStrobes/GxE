@@ -169,7 +169,7 @@ def simulate_total_proportional_amplification(gene_geno, EE, proportional_amplif
 
 	# Get variance scaling factor
 	SS = np.ones(len(EE))
-	SS[EE==1.0] = proportional_amplification_scaling_factor
+	SS[EE==np.random.choice([0.0,1.0])] = proportional_amplification_scaling_factor
 	SS = SS/np.mean(SS)
 
 	PA_geno = gene_geno * np.sqrt(SS[:, np.newaxis])
@@ -231,6 +231,8 @@ args = parser.parse_args()
 
 raw_pa_scaling_factors = np.asarray([0.0, .05, .1, .2, .5])
 pa_scaling_factors = 1.0 + ((args.variance_scaling_factor)*np.copy(raw_pa_scaling_factors))
+pa_scaling_factor_lb = np.min(pa_scaling_factors)
+pa_scaling_factor_ub = np.max(pa_scaling_factors)
 
 print('SIMULATING PROPORTIONAL AMPLIFICATION DATA')
 print(args)
@@ -325,7 +327,8 @@ for gene_tuple in tqdm(gene_tss_arr):
 	n_cis_snps = standardized_cis_genotype_mat.shape[0]
 
 	# Randomly pick genes scaling factor
-	gene_pa_scaling_factor = np.random.choice(pa_scaling_factors)
+	#gene_pa_scaling_factor = np.random.choice(pa_scaling_factors)
+	gene_pa_scaling_factor = np.random.uniform(pa_scaling_factor_lb, pa_scaling_factor_ub)
 
 	# Simulate Expression data
 	if args.simulation_type == 'total_PA':
