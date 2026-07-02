@@ -174,6 +174,129 @@ def normalize_expression(tissue_gene_reads_file, tissue_log_tmm_file, tissue_int
     standardize_rows(log_cpm_df).to_csv(tissue_log_cpm_file, sep='\t', compression='gzip')
     return
 
+def generate_xcell_ct_proportions(xcell_ct_proportions_file, xcell_ct_proportions_tissue_file, tissue_gene_reads_file, gtex_sample_id_to_individual_tissue_format, tissue_name):
+    # First get ordered list of individuals in the tissue gene reads file
+    f = gzip.open(tissue_gene_reads_file, 'rt')
+    head_count = 0
+    for line in f:
+        line = line.rstrip()
+        data = line.split('\t')
+        if head_count == 0:
+            head_count += 1
+            ordered_indi_ids = np.asarray(data[2:])
+            break
+    f.close()
+
+
+    # Third, filter xCell cell-type proportions file to only include individuals in the tissue gene reads file and in same order
+    f = gzip.open(xcell_ct_proportions_file, 'rt')
+    t = gzip.open(xcell_ct_proportions_tissue_file, 'wt')
+    head_count = 0
+    for line in f:
+        line = line.rstrip()
+        data = line.split('\t')
+        if head_count == 0:
+            head_count += 1
+            sample_ids = np.asarray(data[1:])
+            valid_sample_indices = []
+            individual_ids = []
+            for i in range(len(sample_ids)):
+                sample_id = sample_ids[i]
+                if sample_id not in gtex_sample_id_to_individual_tissue_format:
+                    continue
+                if gtex_sample_id_to_individual_tissue_format[sample_id] != tissue_name:
+                    continue
+                individual_id = '-'.join(sample_id.split('-')[:2])
+
+                valid_sample_indices.append(i)
+                individual_ids.append(individual_id)
+            individual_ids = np.asarray(individual_ids)
+            valid_sample_indices = np.asarray(valid_sample_indices)
+
+            indi_id_to_pos = {}
+            for i in range(len(individual_ids)):
+                indi_id_to_pos[individual_ids[i]] = i
+            
+            remapping = []
+            for i in range(len(ordered_indi_ids)):
+                indi_id = ordered_indi_ids[i]
+                if indi_id not in indi_id_to_pos:
+                    print('assumption error: individual ID ' + indi_id + ' not found in xCell cell-type proportions file')
+                    pdb.set_trace()
+                remapping.append(indi_id_to_pos[indi_id])
+            remapping = np.asarray(remapping)
+
+            t.write(data[0] + '\t' + '\t'.join(ordered_indi_ids) + '\n')
+            continue
+        values = np.asarray(data[1:])[valid_sample_indices][remapping]
+        t.write(data[0] + '\t' + '\t'.join(values) + '\n')
+
+    f.close()
+    t.close()
+
+    return
+
+def generate_qtl_covariates_in_tissue_of_interest(tissue_covariate_file, tissue_covariate_output_file, tissue_gene_reads_file):
+    # First get ordered list of individuals in the tissue gene reads file
+    f = gzip.open(tissue_gene_reads_file, 'rt')
+    head_count = 0
+    for line in f:
+        line = line.rstrip()
+        data = line.split('\t')
+        if head_count == 0:
+            head_count += 1
+            ordered_indi_ids = np.asarray(data[2:])
+            break
+    f.close()
+
+    f = open(tissue_covariate_file)
+    t = gzip.open(tissue_covariate_output_file, 'wt')
+    head_count = 0
+    for line in f:
+        line = line.rstrip()
+        data = line.split('\t')
+        if head_count == 0:
+            head_count += 1
+            sample_ids = np.asarray(data[1:])
+            sample_id_to_pos = {}
+            for i in range(len(sample_ids)):
+                sample_id_to_pos[sample_ids[i]] = i
+            remapping = []
+            for i in range(len(ordered_indi_ids)):
+                indi_id = ordered_indi_ids[i]
+                if indi_id not in sample_id_to_pos:
+                    print('assumption error: individual ID ' + indi_id + ' not found in covariate file')
+                    pdb.set_trace()
+                remapping.append(sample_id_to_pos[indi_id])
+            remapping = np.asarray(remapping)
+            if np.array_equal(ordered_indi_ids, sample_ids[remapping]) == False:
+                print('assumption error: individual IDs in covariate file do not match individual IDs in tissue gene reads file')
+                pdb.set_trace()
+            t.write(data[0] + '\t' + '\t'.join(ordered_indi_ids) + '\n')
+            continue
+        values = np.asarray(data[1:])[remapping]
+        t.write(data[0] + '\t' + '\t'.join(values) + '\n')
+    f.close()
+    t.close()
+    return
+
+def get_header_individual_ids(filer):
+    # Individual IDs are stored as the header row minus its first (label) column
+    f = gzip.open(filer, 'rt')
+    header = f.readline().rstrip().split('\t')
+    f.close()
+    return np.asarray(header[1:])
+
+def validate_individual_id_ordering(output_files):
+    # Confirm every output file has the same individual IDs in the same order and length
+    ref_ids = get_header_individual_ids(output_files[0])
+    for filer in output_files[1:]:
+        ids = get_header_individual_ids(filer)
+        if len(ids) != len(ref_ids) or np.array_equal(ids, ref_ids) == False:
+            print('assumption error: individual IDs do not match (order or length) between ' + output_files[0] + ' and ' + filer)
+            pdb.set_trace()
+    return
+
 def main():
     args = parse_args()
 
@@ -203,6 +326,21 @@ def main():
     tissue_log_cpm_file = processed_expression_dir + tissue_name + '.log_cpm.txt.gz'
     normalize_expression(tissue_gene_reads_file, tissue_log_tmm_file, tissue_int_file, tissue_log_cpm_file)
 
+    # Generate xCell cell-type proportions for the tissue of interest
+    xcell_ct_proportions_tissue_file = processed_expression_dir + tissue_name + '.xcell_ct_proportions.txt.gz'
+    generate_xcell_ct_proportions(xcell_ct_proportions_file, xcell_ct_proportions_tissue_file, tissue_gene_reads_file, gtex_sample_id_to_individual_tissue_format, tissue_name)
+
+    # Get qtl covariates for the tissue of interest
+    tissue_covariate_file = gtex_covariate_dir + tissue_name + '.v8.covariates.txt'
+    tissue_covariate_output_file = processed_expression_dir + tissue_name + '.covariates.txt.gz'
+    generate_qtl_covariates_in_tissue_of_interest(tissue_covariate_file, tissue_covariate_output_file, tissue_gene_reads_file)
+
+    # Double check individual IDs are in the same order and length across all generated files
+    validate_individual_id_ordering([tissue_log_tmm_file, tissue_int_file, tissue_log_cpm_file, xcell_ct_proportions_tissue_file, tissue_covariate_output_file])
+
+    print('Finished preprocessing expression data for tissue: ' + tissue_name)
+
+    
 
 if __name__ == '__main__':
     main()
