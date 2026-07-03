@@ -150,7 +150,7 @@ def standardize_rows(df):
     # Standardize each gene (row) to mean 0 and variance 1 (population std, ddof=0)
     return df.sub(df.mean(axis=1), axis=0).div(df.std(axis=1, ddof=0), axis=0)
 
-def normalize_expression(tissue_gene_reads_file, tissue_log_tmm_file, tissue_int_file, tissue_log_cpm_file):
+def normalize_expression(tissue_gene_reads_file, tissue_log_tmm_file, tissue_log_tmm_unstandardized_file, tissue_int_file):
     # Load filtered read counts into a genes (rows) x samples (cols) DataFrame
     reads_df = pd.read_csv(tissue_gene_reads_file, sep='\t', index_col=0)
     # First column is the gene Description; drop it so only sample columns remain
@@ -159,19 +159,15 @@ def normalize_expression(tissue_gene_reads_file, tissue_log_tmm_file, tissue_int
     # TMM-normalized CPM (edgeR_cpm computes TMM library-size factors internally)
     tmm_df = rnaseqnorm.edgeR_cpm(reads_df, normalized_lib_sizes=True)
 
-    # Each output is standardized so every gene (row) has mean 0 and variance 1
-
     # Output 1: edgeR log2 CPM (TMM-normalized effective library sizes)
     log_tmm_df = edger_logcpm(reads_df)
+    # Save the un-standardized version, then the per-gene standardized (mean 0, variance 1) version
+    log_tmm_df.to_csv(tissue_log_tmm_unstandardized_file, sep='\t', compression='gzip')
     standardize_rows(log_tmm_df).to_csv(tissue_log_tmm_file, sep='\t', compression='gzip')
 
     # Output 2: inverse normal transform of TMM-normalized CPM (per gene, across samples)
     int_df = rnaseqnorm.inverse_normal_transform(tmm_df)
     standardize_rows(int_df).to_csv(tissue_int_file, sep='\t', compression='gzip')
-
-    # Output 3: naive log2 of TMM-normalized CPM (log2(cpm + 1))
-    log_cpm_df = np.log2(tmm_df + 1)
-    standardize_rows(log_cpm_df).to_csv(tissue_log_cpm_file, sep='\t', compression='gzip')
     return
 
 def generate_xcell_ct_proportions(xcell_ct_proportions_file, xcell_ct_proportions_tissue_file, tissue_gene_reads_file, gtex_sample_id_to_individual_tissue_format, tissue_name):
@@ -320,11 +316,11 @@ def main():
     generate_tissue_gene_reads_file(tissue_gene_reads_file, gtex_v8_gene_reads_file, ordered_eqtl_indi_ids, ordered_eqtl_gene_names, eqtl_gene_dictionary, gtex_sample_id_to_individual_tissue_format, eqtl_indi_dictionary, tissue_name)
 
 
-    # Normalize expression: edgeR logCPM, inverse normal transformed TMM-CPM, and naive log2(cpm+1)
+    # Normalize expression: edgeR logCPM and inverse normal transformed TMM-CPM (Cuomo et al. 2021 pseudobulk branch)
     tissue_log_tmm_file = processed_expression_dir + tissue_name + '.log_tmm.txt.gz'
+    tissue_log_tmm_unstandardized_file = processed_expression_dir + tissue_name + '.log_tmm.unstandardized.txt.gz'
     tissue_int_file = processed_expression_dir + tissue_name + '.inverse_normal_transform.txt.gz'
-    tissue_log_cpm_file = processed_expression_dir + tissue_name + '.log_cpm.txt.gz'
-    normalize_expression(tissue_gene_reads_file, tissue_log_tmm_file, tissue_int_file, tissue_log_cpm_file)
+    normalize_expression(tissue_gene_reads_file, tissue_log_tmm_file, tissue_log_tmm_unstandardized_file, tissue_int_file)
 
     # Generate xCell cell-type proportions for the tissue of interest
     xcell_ct_proportions_tissue_file = processed_expression_dir + tissue_name + '.xcell_ct_proportions.txt.gz'
@@ -336,7 +332,7 @@ def main():
     generate_qtl_covariates_in_tissue_of_interest(tissue_covariate_file, tissue_covariate_output_file, tissue_gene_reads_file)
 
     # Double check individual IDs are in the same order and length across all generated files
-    validate_individual_id_ordering([tissue_log_tmm_file, tissue_int_file, tissue_log_cpm_file, xcell_ct_proportions_tissue_file, tissue_covariate_output_file])
+    validate_individual_id_ordering([tissue_log_tmm_file, tissue_log_tmm_unstandardized_file, tissue_int_file, xcell_ct_proportions_tissue_file, tissue_covariate_output_file])
 
     print('Finished preprocessing expression data for tissue: ' + tissue_name)
 
