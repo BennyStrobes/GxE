@@ -129,55 +129,39 @@ mv_output_file <- paste0(output_stem, ".mean_variance.png")
 ggsave(mv_output_file, p_mv, width = 5 * length(normalization_methods), height = 9, dpi = 200)
 cat("Wrote:", mv_output_file, "\n")
 
-# ---- Separate figure: delta(var) vs delta(mean), one panel per normalization method ----
-df$delta_var  <- df$var_E1 - df$var_E0    # E1 - E0
+# ---- Separate figure: log2 variance ratio vs delta(mean), one panel per normalization method ----
 df$delta_mean <- df$mean_E1 - df$mean_E0  # E1 - E0
 
-p_delta <- ggplot(df, aes(x = delta_mean, y = delta_var)) +
+p_delta <- ggplot(df, aes(x = delta_mean, y = log2_ratio)) +
     geom_point(alpha = 0.25, size = 0.6) +
     geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
     geom_vline(xintercept = 0, color = "red", linetype = "dashed") +
     facet_wrap(~ method) +
     labs(x = "delta mean  (mean_E1 - mean_E0)",
-         y = "delta var  (var_E1 - var_E0)",
-         title = "Change in variance vs change in mean across strata",
+         y = "log2(var_E1 / var_E0)",
+         title = "Variance ratio vs change in mean across strata",
          subtitle = subtitle_str) +
     theme_bw()
 
-delta_output_file <- paste0(output_stem, ".delta_var_vs_delta_mean.png")
+delta_output_file <- paste0(output_stem, ".log2_var_ratio_vs_delta_mean.png")
 ggsave(delta_output_file, p_delta, width = 6 * length(normalization_methods), height = 5.5, dpi = 200)
 cat("Wrote:", delta_output_file, "\n")
 
-# ---- Separate figure: mean_E0 vs mean_E1 colored by delta(var), one panel per method ----
-p_mm <- ggplot(df, aes(x = mean_E0, y = mean_E1, color = delta_var)) +
+# ---- Separate figure: mean_E0 vs mean_E1 colored by log2 variance ratio, one panel per method ----
+p_mm <- ggplot(df, aes(x = mean_E0, y = mean_E1, color = log2_ratio)) +
     geom_point(alpha = 0.6, size = 0.7) +
     geom_abline(slope = 1, intercept = 0, color = "black", linetype = "dashed") +
     scale_color_gradient2(low = "blue", mid = "grey85", high = "red", midpoint = 0,
-                          name = "delta var\n(E1 - E0)") +
+                          name = "log2(var_E1\n/ var_E0)") +
     facet_wrap(~ method) +
     labs(x = "mean (E0, low)", y = "mean (E1, high)",
-         title = "Stratum means colored by change in variance",
+         title = "Stratum means colored by variance ratio",
          subtitle = subtitle_str) +
     theme_bw()
 
-mm_output_file <- paste0(output_stem, ".mean_E0_vs_mean_E1_by_delta_var.png")
+mm_output_file <- paste0(output_stem, ".mean_E0_vs_mean_E1_by_log2_var_ratio.png")
 ggsave(mm_output_file, p_mm, width = 6 * length(normalization_methods), height = 5.5, dpi = 200)
 cat("Wrote:", mm_output_file, "\n")
-
-# ---- Separate figure: delta(var) vs mean_E0, one panel per method ----
-p_dm0 <- ggplot(df, aes(x = mean_E0, y = delta_var)) +
-    geom_point(alpha = 0.25, size = 0.6) +
-    geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
-    geom_smooth(method = "loess", se = FALSE, color = "blue") +
-    facet_wrap(~ method) +
-    labs(x = "mean (E0, low)", y = "delta var  (var_E1 - var_E0)",
-         title = "Change in variance vs baseline (E0) mean",
-         subtitle = subtitle_str) +
-    theme_bw()
-
-dm0_output_file <- paste0(output_stem, ".delta_var_vs_mean_E0.png")
-ggsave(dm0_output_file, p_dm0, width = 6 * length(normalization_methods), height = 5.5, dpi = 200)
-cat("Wrote:", dm0_output_file, "\n")
 
 # ---- Separate figure: log2 variance ratio vs mean_E0, one panel per method ----
 p_rm0 <- ggplot(df, aes(x = mean_E0, y = log2_ratio)) +
@@ -229,3 +213,20 @@ p_ratio_avg <- ggplot(df, aes(x = avg_mean, y = log2_ratio, color = delta_mean))
 ratio_avg_output_file <- paste0(output_stem, ".log2_var_ratio_vs_avg_mean_by_delta_mean.png")
 ggsave(ratio_avg_output_file, p_ratio_avg, width = 6 * length(normalization_methods), height = 5.5, dpi = 200)
 cat("Wrote:", ratio_avg_output_file, "\n")
+
+# ---- Separate figure: |log2 variance ratio| vs average mean, with line of best fit, one panel per method ----
+df$abs_log2_ratio <- abs(df$log2_ratio)
+
+p_abs_ratio <- ggplot(df, aes(x = avg_mean, y = abs_log2_ratio)) +
+    geom_point(alpha = 0.25, size = 0.6) +
+    geom_smooth(method = "loess", se = TRUE, color = "blue") +
+    facet_wrap(~ method) +
+    labs(x = "average mean  (mean_E0 + mean_E1)/2",
+         y = "|log2(var_E1 / var_E0)|",
+         title = "Magnitude of variance ratio vs average mean (loess curve)",
+         subtitle = subtitle_str) +
+    theme_bw()
+
+abs_ratio_output_file <- paste0(output_stem, ".abs_log2_var_ratio_vs_avg_mean.png")
+ggsave(abs_ratio_output_file, p_abs_ratio, width = 6 * length(normalization_methods), height = 5.5, dpi = 200)
+cat("Wrote:", abs_ratio_output_file, "\n")

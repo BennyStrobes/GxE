@@ -75,9 +75,8 @@ Rscript visualize_per_gene_variance.R \
     ${processed_expression_dir} \
     ${tissue_name} \
     ${cell_type} \
-    "$(echo ${normalization_methods} | tr ' ' ',')" \
+    "log_tmm.unstandardized" \
     ${per_gene_variance_plot_stem}
-
 
 
 
