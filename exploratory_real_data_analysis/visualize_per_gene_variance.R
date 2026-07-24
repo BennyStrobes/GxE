@@ -115,19 +115,37 @@ long_E1 <- data.frame(method = df$method, stratum = "E1 (high)",
                       mean = df$mean_E1, var = df$var_E1)
 mv_df <- rbind(long_E0, long_E1)
 
-p_mv <- ggplot(mv_df, aes(x = mean, y = var)) +
-    geom_point(alpha = 0.25, size = 0.6) +
-    geom_smooth(method = "loess", se = FALSE, color = "blue") +
+p_mv <- ggplot(mv_df, aes(x = mean, y = var, color = stratum, fill = stratum)) +
+    geom_point(alpha = 0.20, size = 0.6) +
+    geom_smooth(method = "loess", se = FALSE) +
     scale_y_log10() +
-    facet_grid(stratum ~ method) +   # rows = stratum, cols = method -> 2 x n_methods grid
+    scale_color_brewer(palette = "Set1", name = "E stratum") +
+    scale_fill_brewer(palette = "Set1", name = "E stratum") +
+    facet_wrap(~ method) +   # one panel per method; strata overlaid by color
     labs(x = "per-gene mean (within stratum)",
          y = "per-gene variance (within stratum)",
          title = "Mean-variance relationship", subtitle = subtitle_str) +
     theme_bw()
 
 mv_output_file <- paste0(output_stem, ".mean_variance.png")
-ggsave(mv_output_file, p_mv, width = 5 * length(normalization_methods), height = 9, dpi = 200)
+ggsave(mv_output_file, p_mv, width = 5 * length(normalization_methods), height = 5, dpi = 200)
 cat("Wrote:", mv_output_file, "\n")
+
+# ---- Same mean-variance figure, but on a linear y-axis ----
+p_mv_lin <- ggplot(mv_df, aes(x = mean, y = var, color = stratum, fill = stratum)) +
+    geom_point(alpha = 0.20, size = 0.6) +
+    geom_smooth(method = "loess", se = FALSE) +
+    scale_color_brewer(palette = "Set1", name = "E stratum") +
+    scale_fill_brewer(palette = "Set1", name = "E stratum") +
+    facet_wrap(~ method) +   # one panel per method; strata overlaid by color
+    labs(x = "per-gene mean (within stratum)",
+         y = "per-gene variance (within stratum)",
+         title = "Mean-variance relationship (linear y-axis)", subtitle = subtitle_str) +
+    theme_bw()
+
+mv_lin_output_file <- paste0(output_stem, ".mean_variance.linear_y.png")
+ggsave(mv_lin_output_file, p_mv_lin, width = 5 * length(normalization_methods), height = 5, dpi = 200)
+cat("Wrote:", mv_lin_output_file, "\n")
 
 # ---- Separate figure: log2 variance ratio vs delta(mean), one panel per normalization method ----
 df$delta_mean <- df$mean_E1 - df$mean_E0  # E1 - E0

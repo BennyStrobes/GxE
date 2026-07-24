@@ -26,13 +26,16 @@ def parse_args():
                         help='Output directory for processed expression data')
     parser.add_argument('--tissue_name', required=True,
                         help='Tissue name (e.g. Whole_Blood)')
+    parser.add_argument('--valid_individuals_file', required=True,
+                        help='PSAM formatted list of individuals')
     return parser.parse_args()
 
-def load_in_eqtl_genes_and_tissues(filer):
+def load_in_eqtl_genes_and_tissues(filer, valid_individuals):
     valid_chroms = {}
     for chrom_num in range(1, 23):
         valid_chroms['chr' + str(chrom_num)] = 1
 
+    gene_to_position = {}
     f = gzip.open(filer, 'rt')
     ordered_genes = []
     head_count = 0
@@ -40,13 +43,32 @@ def load_in_eqtl_genes_and_tissues(filer):
         line = line.rstrip()
         data = line.split('\t')
         if head_count == 0:
-            ordered_indi_ids = np.asarray(data[4:])
+            ordered_indi_ids_tmp = np.asarray(data[4:])
+            ordered_indi_ids = []
+            for indi_id in ordered_indi_ids_tmp:
+                if indi_id not in valid_individuals:
+                    continue
+                ordered_indi_ids.append(indi_id)
+            ordered_indi_ids = np.asarray(ordered_indi_ids)
+            # An empty intersection would otherwise pass the length checks downstream
+            # (0 == 0) and silently produce expression files with no sample columns
+            if len(ordered_indi_ids) == 0:
+                print('assumption error: none of the individuals in the eQTL expression matrix are in the valid individuals (psam) file')
+                pdb.set_trace()
+            print('Kept ' + str(len(ordered_indi_ids)) + ' of ' + str(len(ordered_indi_ids_tmp)) + ' eQTL individuals present in the valid individuals (psam) file')
             head_count += 1
             continue
         if data[0] not in valid_chroms:
             continue
         gene_id = data[3]
         ordered_genes.append(gene_id)
+        if gene_id in gene_to_position:
+            print('assumption oeroror')
+            pdb.set_trace()
+        gene_to_position[gene_id] = (data[0], data[1], data[2])
+        if int(data[2]) <= int(data[1]):
+            print('assumption oerororo')
+            pdb.set_trace()
     f.close()
 
     gene_dictionary = {}
@@ -57,7 +79,7 @@ def load_in_eqtl_genes_and_tissues(filer):
     for i in range(len(ordered_indi_ids)):
         indi_dictionary[ordered_indi_ids[i]] = i
 
-    return ordered_indi_ids, np.asarray(ordered_genes), gene_dictionary, indi_dictionary
+    return ordered_indi_ids, np.asarray(ordered_genes), gene_dictionary, indi_dictionary, gene_to_position
 
 def to_underscore(s: str) -> str:
     s = s.replace(")", "")
@@ -88,7 +110,7 @@ def create_mapping_from_gtex_sample_id_to_individual_tissue_format(gtex_sample_a
     f.close()
     return gtex_sample_to_tissue_name
 
-def generate_tissue_gene_reads_file(tissue_gene_reads_file, gtex_v8_gene_reads_file, ordered_eqtl_indi_ids, ordered_eqtl_gene_names, eqtl_gene_dictionary, gtex_sample_id_to_individual_tissue_format, eqtl_indi_dictionary, tissue_name):
+def generate_tissue_gene_reads_file(tissue_gene_reads_file, gtex_v8_gene_reads_file, ordered_eqtl_indi_ids, ordered_eqtl_gene_names, eqtl_gene_dictionary, gtex_sample_id_to_individual_tissue_format, eqtl_indi_dictionary, tissue_name, gene_to_position):
     f = gzip.open(gtex_v8_gene_reads_file, 'rt')
     t = gzip.open(tissue_gene_reads_file, 'wt')
     head_count = 0
@@ -122,14 +144,15 @@ def generate_tissue_gene_reads_file(tissue_gene_reads_file, gtex_v8_gene_reads_f
             if len(ordered_indi_ids) != len(ordered_eqtl_indi_ids):
                 print('assumption error: number of individuals in gene reads file does not match number of individuals in eQTL expression matrix')
                 pdb.set_trace()
-            t.write(data[0] + '\t' + data[1] + '\t' + '\t'.join(ordered_indi_ids) + '\n')
+            t.write('#chr\tstart\tend\tgene_id' + '\t' + '\t'.join(ordered_indi_ids) + '\n')
             continue
         ensamble_id = data[0]
         gene_id = data[1]
         if ensamble_id not in eqtl_gene_dictionary:
             continue
         valid_data = np.asarray(data[2:])[valid_sample_indices]
-        t.write(ensamble_id + '\t' + gene_id + '\t' + '\t'.join(valid_data) + '\n')
+        gene_position = gene_to_position[ensamble_id]
+        t.write(gene_position[0] + '\t' + gene_position[1] + '\t' + gene_position[2] + '\t' + ensamble_id + '\t' + '\t'.join(valid_data) + '\n')
         used_genes += 1
     f.close()
     t.close()
@@ -151,10 +174,19 @@ def standardize_rows(df):
     return df.sub(df.mean(axis=1), axis=0).div(df.std(axis=1, ddof=0), axis=0)
 
 def normalize_expression(tissue_gene_reads_file, tissue_log_tmm_file, tissue_log_tmm_unstandardized_file, tissue_int_file):
-    # Load filtered read counts into a genes (rows) x samples (cols) DataFrame
+    # Load filtered read counts into a genes (rows) x samples (cols) DataFrame.
+    # index_col=0 consumes the first metadata column (gene ID) as the row index;
+    # 3 more metadata columns precede the first sample.
     reads_df = pd.read_csv(tissue_gene_reads_file, sep='\t', index_col=0)
-    # First column is the gene Description; drop it so only sample columns remain
-    reads_df = reads_df.drop(columns=reads_df.columns[0])
+    # Keep the 3 remaining metadata columns so we can re-attach them on output;
+    # the normalization only operates on the sample columns.
+    meta_df = reads_df.iloc[:, :3]
+    reads_df = reads_df.drop(columns=reads_df.columns[:3])
+
+    # Write a normalized matrix out with the original 4 leading columns
+    # (gene ID index + 3 metadata cols) and the same header as the input file.
+    def save_with_meta(values_df, path):
+        pd.concat([meta_df, values_df], axis=1).to_csv(path, sep='\t', compression='gzip')
 
     # TMM-normalized CPM (edgeR_cpm computes TMM library-size factors internally)
     tmm_df = rnaseqnorm.edgeR_cpm(reads_df, normalized_lib_sizes=True)
@@ -162,12 +194,12 @@ def normalize_expression(tissue_gene_reads_file, tissue_log_tmm_file, tissue_log
     # Output 1: edgeR log2 CPM (TMM-normalized effective library sizes)
     log_tmm_df = edger_logcpm(reads_df)
     # Save the un-standardized version, then the per-gene standardized (mean 0, variance 1) version
-    log_tmm_df.to_csv(tissue_log_tmm_unstandardized_file, sep='\t', compression='gzip')
-    standardize_rows(log_tmm_df).to_csv(tissue_log_tmm_file, sep='\t', compression='gzip')
+    save_with_meta(log_tmm_df, tissue_log_tmm_unstandardized_file)
+    save_with_meta(standardize_rows(log_tmm_df), tissue_log_tmm_file)
 
     # Output 2: inverse normal transform of TMM-normalized CPM (per gene, across samples)
     int_df = rnaseqnorm.inverse_normal_transform(tmm_df)
-    standardize_rows(int_df).to_csv(tissue_int_file, sep='\t', compression='gzip')
+    save_with_meta(standardize_rows(int_df), tissue_int_file)
     return
 
 def generate_xcell_ct_proportions(xcell_ct_proportions_file, xcell_ct_proportions_tissue_file, tissue_gene_reads_file, gtex_sample_id_to_individual_tissue_format, tissue_name):
@@ -179,7 +211,7 @@ def generate_xcell_ct_proportions(xcell_ct_proportions_file, xcell_ct_proportion
         data = line.split('\t')
         if head_count == 0:
             head_count += 1
-            ordered_indi_ids = np.asarray(data[2:])
+            ordered_indi_ids = np.asarray(data[4:])
             break
     f.close()
 
@@ -232,6 +264,41 @@ def generate_xcell_ct_proportions(xcell_ct_proportions_file, xcell_ct_proportion
 
     return
 
+def generate_binary_neutrophil_file(xcell_ct_proportions_tissue_file, binary_neutrophil_output_file, cell_type='Neutrophils'):
+    # Read the tissue xCell proportions file and pull out the individual IDs (header)
+    # and the row of proportions for the requested cell type.
+    f = gzip.open(xcell_ct_proportions_tissue_file, 'rt')
+    ordered_indi_ids = None
+    proportions = None
+    head_count = 0
+    for line in f:
+        line = line.rstrip()
+        data = line.split('\t')
+        if head_count == 0:
+            head_count += 1
+            ordered_indi_ids = np.asarray(data[1:])
+            continue
+        if data[0] == cell_type:
+            proportions = np.asarray(data[1:], dtype=float)
+    f.close()
+
+    if proportions is None:
+        print('assumption error: cell type ' + cell_type + ' not found in ' + xcell_ct_proportions_tissue_file)
+        pdb.set_trace()
+
+    # Binarize by median split: 1.0 for individuals strictly above the median, else 0.0
+    median_proportion = np.median(proportions)
+    binary_values = np.where(proportions > median_proportion, 1.0, 0.0)
+
+    # Write in covariate-style format: empty top-left cell, individual IDs across the header,
+    # then a single row for this cell type.
+    t = open(binary_neutrophil_output_file, 'w')
+    t.write('\t' + '\t'.join(ordered_indi_ids) + '\n')
+    t.write(cell_type + '\t' + '\t'.join('%s' % v for v in binary_values) + '\n')
+    t.close()
+
+    return
+
 def generate_qtl_covariates_in_tissue_of_interest(tissue_covariate_file, tissue_covariate_output_file, tissue_gene_reads_file):
     # First get ordered list of individuals in the tissue gene reads file
     f = gzip.open(tissue_gene_reads_file, 'rt')
@@ -241,7 +308,7 @@ def generate_qtl_covariates_in_tissue_of_interest(tissue_covariate_file, tissue_
         data = line.split('\t')
         if head_count == 0:
             head_count += 1
-            ordered_indi_ids = np.asarray(data[2:])
+            ordered_indi_ids = np.asarray(data[4:])
             break
     f.close()
 
@@ -276,22 +343,45 @@ def generate_qtl_covariates_in_tissue_of_interest(tissue_covariate_file, tissue_
     t.close()
     return
 
-def get_header_individual_ids(filer):
-    # Individual IDs are stored as the header row minus its first (label) column
+def get_header_individual_ids(filer, n_meta=1):
+    # Individual IDs are stored as the header row minus its leading metadata columns.
+    # n_meta is the number of leading (non-sample) columns: 1 for the xCell/covariate
+    # files (single label column), 4 for the normalized-expression files
+    # (#chr, start, end, gene_id).
     f = gzip.open(filer, 'rt')
     header = f.readline().rstrip().split('\t')
     f.close()
-    return np.asarray(header[1:])
+    return np.asarray(header[n_meta:])
 
 def validate_individual_id_ordering(output_files):
-    # Confirm every output file has the same individual IDs in the same order and length
-    ref_ids = get_header_individual_ids(output_files[0])
-    for filer in output_files[1:]:
-        ids = get_header_individual_ids(filer)
+    # Confirm every output file has the same individual IDs in the same order and length.
+    # output_files is a list of (path, n_meta) tuples so each file's leading metadata
+    # columns are stripped correctly before comparing.
+    ref_file, ref_n_meta = output_files[0]
+    ref_ids = get_header_individual_ids(ref_file, ref_n_meta)
+    for filer, n_meta in output_files[1:]:
+        ids = get_header_individual_ids(filer, n_meta)
         if len(ids) != len(ref_ids) or np.array_equal(ids, ref_ids) == False:
-            print('assumption error: individual IDs do not match (order or length) between ' + output_files[0] + ' and ' + filer)
+            print('assumption error: individual IDs do not match (order or length) between ' + ref_file + ' and ' + filer)
             pdb.set_trace()
     return
+
+def extract_valid_gtex_genotyped_individuals(valid_individuals_file):
+    f = open(valid_individuals_file)
+    head_count = 0
+    dicti = {}
+    for line in f:
+        line = line.rstrip()
+        data = line.split()
+        if head_count==0:
+            head_count = head_count + 1
+            continue
+        if data[1] in dicti:
+            print('assumptioneroror')
+            pdb.set_trace()
+        dicti[data[1]] = 0
+    f.close()
+    return dicti
 
 def main():
     args = parse_args()
@@ -303,9 +393,13 @@ def main():
     gtex_covariate_dir = args.gtex_covariate_dir
     processed_expression_dir = args.processed_expression_dir
     tissue_name = args.tissue_name
+    valid_individuals_file = args.valid_individuals_file
+
+    # Extract dictionary list of genotyped individuals that we will allow for downstream processing
+    valid_individuals = extract_valid_gtex_genotyped_individuals(valid_individuals_file)
     
     # Extract gtex individual IDs for the tissue of interest
-    ordered_eqtl_indi_ids, ordered_eqtl_gene_names, eqtl_gene_dictionary, eqtl_indi_dictionary = load_in_eqtl_genes_and_tissues(gtex_v8_eqtl_expression_matrices_dir + tissue_name + '.v8.normalized_expression.bed.gz')
+    ordered_eqtl_indi_ids, ordered_eqtl_gene_names, eqtl_gene_dictionary, eqtl_indi_dictionary, gene_to_position = load_in_eqtl_genes_and_tissues(gtex_v8_eqtl_expression_matrices_dir + tissue_name + '.v8.normalized_expression.bed.gz', valid_individuals)
 
     # Create mapping from sample ID to tissue name
     gtex_sample_id_to_individual_tissue_format = create_mapping_from_gtex_sample_id_to_individual_tissue_format(gtex_sample_attributes_file, tissue_name)
@@ -313,9 +407,10 @@ def main():
     
     # Filter gene reads file to only samples in this tissue, and filter to genes in the eQTL expression matrix
     tissue_gene_reads_file = processed_expression_dir + tissue_name + '.gene_reads.filtered.txt.gz'
-    generate_tissue_gene_reads_file(tissue_gene_reads_file, gtex_v8_gene_reads_file, ordered_eqtl_indi_ids, ordered_eqtl_gene_names, eqtl_gene_dictionary, gtex_sample_id_to_individual_tissue_format, eqtl_indi_dictionary, tissue_name)
+    generate_tissue_gene_reads_file(tissue_gene_reads_file, gtex_v8_gene_reads_file, ordered_eqtl_indi_ids, ordered_eqtl_gene_names, eqtl_gene_dictionary, gtex_sample_id_to_individual_tissue_format, eqtl_indi_dictionary, tissue_name, gene_to_position)
 
 
+   
     # Normalize expression: edgeR logCPM and inverse normal transformed TMM-CPM (Cuomo et al. 2021 pseudobulk branch)
     tissue_log_tmm_file = processed_expression_dir + tissue_name + '.log_tmm.txt.gz'
     tissue_log_tmm_unstandardized_file = processed_expression_dir + tissue_name + '.log_tmm.unstandardized.txt.gz'
@@ -326,13 +421,27 @@ def main():
     xcell_ct_proportions_tissue_file = processed_expression_dir + tissue_name + '.xcell_ct_proportions.txt.gz'
     generate_xcell_ct_proportions(xcell_ct_proportions_file, xcell_ct_proportions_tissue_file, tissue_gene_reads_file, gtex_sample_id_to_individual_tissue_format, tissue_name)
 
+    # Binary (1.0/0.0) Neutrophil indicator via median split of the xCell proportions
+    binary_neutrophil_output_file = processed_expression_dir + tissue_name + '.xcell_neutrophils_binary.txt'
+    generate_binary_neutrophil_file(xcell_ct_proportions_tissue_file, binary_neutrophil_output_file)
+
+
+
     # Get qtl covariates for the tissue of interest
     tissue_covariate_file = gtex_covariate_dir + tissue_name + '.v8.covariates.txt'
     tissue_covariate_output_file = processed_expression_dir + tissue_name + '.covariates.txt.gz'
     generate_qtl_covariates_in_tissue_of_interest(tissue_covariate_file, tissue_covariate_output_file, tissue_gene_reads_file)
 
-    # Double check individual IDs are in the same order and length across all generated files
-    validate_individual_id_ordering([tissue_log_tmm_file, tissue_log_tmm_unstandardized_file, tissue_int_file, xcell_ct_proportions_tissue_file, tissue_covariate_output_file])
+    # Double check individual IDs are in the same order and length across all generated files.
+    # Normalized-expression files carry 4 leading metadata columns (#chr, start, end, gene_id);
+    # the xCell and covariate files carry a single leading label column.
+    validate_individual_id_ordering([
+        (tissue_log_tmm_file, 4),
+        (tissue_log_tmm_unstandardized_file, 4),
+        (tissue_int_file, 4),
+        (xcell_ct_proportions_tissue_file, 1),
+        (tissue_covariate_output_file, 1),
+    ])
 
     print('Finished preprocessing expression data for tissue: ' + tissue_name)
 

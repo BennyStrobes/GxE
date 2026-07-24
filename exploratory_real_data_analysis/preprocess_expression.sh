@@ -11,6 +11,7 @@ gtex_sample_attributes_file="$4"
 gtex_covariate_dir="$5"
 processed_expression_dir="$6"
 tissue_name="$7"
+genotype_psam_sample_file="$8"
 
 
 python preprocess_expression.py \
@@ -20,5 +21,6 @@ python preprocess_expression.py \
     --gtex_sample_attributes_file ${gtex_sample_attributes_file} \
     --gtex_covariate_dir ${gtex_covariate_dir} \
     --processed_expression_dir ${processed_expression_dir} \
-    --tissue_name ${tissue_name}
+    --tissue_name ${tissue_name} \
+    --valid_individuals_file ${genotype_psam_sample_file}
 

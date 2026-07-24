@@ -80,14 +80,14 @@ def main():
         line = line.rstrip()
         data = line.split('\t')
         if head_count == 0:
-            sample_names = np.asarray(data[1:])
+            sample_names = np.asarray(data[4:])
             if np.array_equal(sample_names, E_variable_sample_names) == False:
                 print('Sample names in expression matrix and xCell proportions file do not match!')
                 pdb.set_trace()
             head_count += 1
             continue
-        gene_name = data[0]
-        expression_values = np.asarray(data[1:]).astype(float)
+        gene_name = data[3]  # columns are #chr, start, end, gene_id, <samples...>
+        expression_values = np.asarray(data[4:]).astype(float)
 
         # Now compute per-gene variance stratified by the E-variable
         var_E0 = np.var(expression_values[E_variable == 0], ddof=1)
