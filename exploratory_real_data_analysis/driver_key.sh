@@ -29,6 +29,8 @@ processed_expression_dir="${output_root}processed_expression/"
 
 processed_genotype_dir=${output_root}"processed_genotype/"
 
+gene_categories_dir=${output_root}"gene_categories/"
+
 pa_h2_results_dir=${output_root}"pa_h2_results/"
 
 
@@ -62,7 +64,6 @@ sh preprocess_expression.sh \
     ${processed_genotype_dir}"gtex_v9_eqtl_chr1.psam"
 fi
 
-
 ###############################
 # Extract per-gene variance stratified by E-variable
 tissue_name="Whole_Blood"
@@ -84,33 +85,66 @@ for normalization_method in ${normalization_methods}; do
 done
 fi
 
+###############################
+# Create gene based groupings
+if false; then
+source ~/.bashrc
+conda activate plink_env
+
+tissue_name="Whole_Blood"
+cell_type="Neutrophils"
+normalization_method="log_tmm.unstandardized"
+per_gene_variance_file="${processed_expression_dir}/${tissue_name}.${normalization_method}.${cell_type}.per_gene_variance.txt"
+gene_categories_output_stem=${gene_categories_dir}"gene_categories_"${tissue_name}"_"${cell_type}
+python make_gene_category_files.py $per_gene_variance_file $gene_categories_output_stem
+fi
+
 
 
 ###############################
 # Run PA-H2 regression
-tissue_name="Whole_Blood"
-cell_type="neutrophils"
-normalization_method="log_tmm"
-
+## Log-TMM based normalization
 if false; then
-# Files
-tissue_expression_matrix_file="${processed_expression_dir}/${tissue_name}.${normalization_method}.txt.gz"
-genotype_stem=${processed_genotype_dir}"gtex_v9_eqtl_chr"
-E_var_file=${processed_expression_dir}${tissue_name}".xcell_"${cell_type}"_binary.txt"
-pa_h2_output_stem=${pa_h2_results_dir}"pa_h2_results_"${tissue_name}"_"${normalization_method}"_"$cell_type
-sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir 
-
 tissue_name="Whole_Blood"
-cell_type="neutrophils"
-normalization_method="inverse_normal_transform"
-
-# Files
+cell_type="Neutrophils"
+normalization_method="log_tmm"
+# files
+gene_category_file="none"
 tissue_expression_matrix_file="${processed_expression_dir}/${tissue_name}.${normalization_method}.txt.gz"
 genotype_stem=${processed_genotype_dir}"gtex_v9_eqtl_chr"
 E_var_file=${processed_expression_dir}${tissue_name}".xcell_"${cell_type}"_binary.txt"
-pa_h2_output_stem=${pa_h2_results_dir}"pa_h2_results_"${tissue_name}"_"${normalization_method}"_"$cell_type
-sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir 
+pa_h2_output_stem=${pa_h2_results_dir}"pa_h2_results_"${tissue_name}"_"${normalization_method}"_"$cell_type"_all_genes"
+sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file
+
+## INT based normalization
+tissue_name="Whole_Blood"
+cell_type="Neutrophils"
+normalization_method="inverse_normal_transform"
+# files
+gene_category_file="none"
+tissue_expression_matrix_file="${processed_expression_dir}/${tissue_name}.${normalization_method}.txt.gz"
+genotype_stem=${processed_genotype_dir}"gtex_v9_eqtl_chr"
+E_var_file=${processed_expression_dir}${tissue_name}".xcell_"${cell_type}"_binary.txt"
+pa_h2_output_stem=${pa_h2_results_dir}"pa_h2_results_"${tissue_name}"_"${normalization_method}"_"$cell_type"_all_genes"
+sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file
+
+# Stratified by gene annotations
+tissue_name="Whole_Blood"
+cell_type="Neutrophils"
+normalization_method="log_tmm"
+gene_category_statistic="mean"
+for gene_category_bin in "0" "1" "2" "3" "4"; do
+    # files
+    gene_category_file=${gene_categories_dir}"gene_categories_"${tissue_name}"_"${cell_type}"_"$gene_category_statistic"_based_categories_category_"$gene_category_bin".txt"
+    tissue_expression_matrix_file="${processed_expression_dir}/${tissue_name}.${normalization_method}.txt.gz"
+    genotype_stem=${processed_genotype_dir}"gtex_v9_eqtl_chr"
+    E_var_file=${processed_expression_dir}${tissue_name}".xcell_"${cell_type}"_binary.txt"
+    pa_h2_output_stem=${pa_h2_results_dir}"pa_h2_results_"${tissue_name}"_"${normalization_method}"_"$cell_type"_"${gene_category_statistic}"_"${gene_category_bin}
+    sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file
+done
 fi
+
+
 
 
 

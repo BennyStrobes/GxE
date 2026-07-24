@@ -422,7 +422,7 @@ def main():
     generate_xcell_ct_proportions(xcell_ct_proportions_file, xcell_ct_proportions_tissue_file, tissue_gene_reads_file, gtex_sample_id_to_individual_tissue_format, tissue_name)
 
     # Binary (1.0/0.0) Neutrophil indicator via median split of the xCell proportions
-    binary_neutrophil_output_file = processed_expression_dir + tissue_name + '.xcell_neutrophils_binary.txt'
+    binary_neutrophil_output_file = processed_expression_dir + tissue_name + '.xcell_Neutrophils_binary.txt'
     generate_binary_neutrophil_file(xcell_ct_proportions_tissue_file, binary_neutrophil_output_file)
 
 
