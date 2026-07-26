@@ -17,6 +17,10 @@ gtex_input_genotype_dir="/lab-share/CHIP-Strober-e2/Public/ben/process_gtex_geno
 
 PA_H2_code_dir="/lab-share/CHIP-Strober-e2/Public/ben/gxe/PA-h2/"
 
+# Gtex subject attributes (has ancestry)
+gtex_subject_attributes_file="/lab-share/CHIP-Strober-e2/Public/GTEx/genotype_dbgap_download/phs000424.v11.pht002742.v9.p2.c1.GTEx_Subject_Phenotypes.GRU.txt.gz"
+
+
 
 
 
@@ -48,7 +52,9 @@ conda activate plink_env
 python quick_reprocessing_of_genotype_data.py $gtex_input_genotype_dir $processed_genotype_dir
 fi
 
-echo "CONSIDER FILTERING TO EUROPEAN ANCESTRY INDIVIDUALS"
+echo "CONSIDER Experimenting with how to handle covariates"
+
+
 ##############################
 # Preprocess expression data (with various normalizations and filtering))
 tissue_name="Whole_Blood"
@@ -61,6 +67,7 @@ sh preprocess_expression.sh \
     ${gtex_covariate_dir} \
     ${processed_expression_dir} \
     ${tissue_name} \
+    ${gtex_subject_attributes_file} \
     ${processed_genotype_dir}"gtex_v9_eqtl_chr1.psam"
 fi
 
@@ -85,12 +92,12 @@ for normalization_method in ${normalization_methods}; do
 done
 fi
 
+
 ###############################
 # Create gene based groupings
 if false; then
 source ~/.bashrc
 conda activate plink_env
-
 tissue_name="Whole_Blood"
 cell_type="Neutrophils"
 normalization_method="log_tmm.unstandardized"
@@ -142,7 +149,22 @@ for gene_category_bin in "0" "1" "2" "3" "4"; do
     pa_h2_output_stem=${pa_h2_results_dir}"pa_h2_results_"${tissue_name}"_"${normalization_method}"_"$cell_type"_"${gene_category_statistic}"_"${gene_category_bin}
     sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file
 done
+
+tissue_name="Whole_Blood"
+cell_type="Neutrophils"
+normalization_method="log_tmm"
+gene_category_statistic="abs_var_diff"
+for gene_category_bin in "0" "1" "2" "3" "4"; do
+    # files
+    gene_category_file=${gene_categories_dir}"gene_categories_"${tissue_name}"_"${cell_type}"_"$gene_category_statistic"_based_categories_category_"$gene_category_bin".txt"
+    tissue_expression_matrix_file="${processed_expression_dir}/${tissue_name}.${normalization_method}.txt.gz"
+    genotype_stem=${processed_genotype_dir}"gtex_v9_eqtl_chr"
+    E_var_file=${processed_expression_dir}${tissue_name}".xcell_"${cell_type}"_binary.txt"
+    pa_h2_output_stem=${pa_h2_results_dir}"pa_h2_results_"${tissue_name}"_"${normalization_method}"_"$cell_type"_"${gene_category_statistic}"_"${gene_category_bin}
+    sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file
+done
 fi
+
 
 
 

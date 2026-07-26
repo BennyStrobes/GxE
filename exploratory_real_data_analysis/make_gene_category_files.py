@@ -17,7 +17,9 @@ def create_gene_categories(per_gene_variance_file, output_stem, num_categories=5
             continue
         # Columns: gene_name, var_E0, var_E1, mean_E0, mean_E1
         if statistic == 'mean':
-            stat_value = float(data[3]) + float(data[4])
+            stat_value = (float(data[3]) + float(data[4]))/2.0
+        elif statistic == 'abs_var_diff':
+            stat_value = np.abs(np.log2(float(data[1])/float(data[2])))
         else:
             print('assumption error: unsupported statistic ' + str(statistic))
             pdb.set_trace()
@@ -58,4 +60,7 @@ per_gene_variance_file = sys.argv[1]
 gene_categories_output_stem = sys.argv[2]
 
 statistic='mean'
+create_gene_categories(per_gene_variance_file, gene_categories_output_stem + '_' + statistic + '_based_categories_', statistic=statistic)
+
+statistic='abs_var_diff'
 create_gene_categories(per_gene_variance_file, gene_categories_output_stem + '_' + statistic + '_based_categories_', statistic=statistic)

@@ -11,7 +11,8 @@ gtex_sample_attributes_file="$4"
 gtex_covariate_dir="$5"
 processed_expression_dir="$6"
 tissue_name="$7"
-genotype_psam_sample_file="$8"
+gtex_subject_attributes_file="$8"
+genotype_psam_sample_file="$9"
 
 
 python preprocess_expression.py \
@@ -19,6 +20,7 @@ python preprocess_expression.py \
     --gtex_v8_eqtl_expression_matrices_dir ${gtex_v8_eqtl_expression_matrices_dir} \
     --xcell_ct_proportions_file ${xcell_ct_proportions_file} \
     --gtex_sample_attributes_file ${gtex_sample_attributes_file} \
+    --gtex_subject_attributes_file ${gtex_subject_attributes_file} \
     --gtex_covariate_dir ${gtex_covariate_dir} \
     --processed_expression_dir ${processed_expression_dir} \
     --tissue_name ${tissue_name} \

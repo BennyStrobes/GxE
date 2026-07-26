@@ -20,6 +20,8 @@ def parse_args():
                         help='Path to xCell cell-type proportions file')
     parser.add_argument('--gtex_sample_attributes_file', required=True,
                         help='Path to GTEx sample attributes file')
+    parser.add_argument('--gtex_subject_attributes_file', required=True,
+                        help='Path to GTEx subject attributes file')
     parser.add_argument('--gtex_covariate_dir', required=True,
                         help='Directory containing GTEx v8 eQTL covariate files')
     parser.add_argument('--processed_expression_dir', required=True,
@@ -55,7 +57,7 @@ def load_in_eqtl_genes_and_tissues(filer, valid_individuals):
             if len(ordered_indi_ids) == 0:
                 print('assumption error: none of the individuals in the eQTL expression matrix are in the valid individuals (psam) file')
                 pdb.set_trace()
-            print('Kept ' + str(len(ordered_indi_ids)) + ' of ' + str(len(ordered_indi_ids_tmp)) + ' eQTL individuals present in the valid individuals (psam) file')
+            print('Kept ' + str(len(ordered_indi_ids)) + ' of ' + str(len(ordered_indi_ids_tmp)) + ' eQTL individuals present in the valid individuals (psam) file and of european ancestry')
             head_count += 1
             continue
         if data[0] not in valid_chroms:
@@ -366,7 +368,7 @@ def validate_individual_id_ordering(output_files):
             pdb.set_trace()
     return
 
-def extract_valid_gtex_genotyped_individuals(valid_individuals_file):
+def extract_valid_gtex_genotyped_individuals(valid_individuals_file, gtex_id_to_ancestry_labels):
     f = open(valid_individuals_file)
     head_count = 0
     dicti = {}
@@ -379,9 +381,39 @@ def extract_valid_gtex_genotyped_individuals(valid_individuals_file):
         if data[1] in dicti:
             print('assumptioneroror')
             pdb.set_trace()
-        dicti[data[1]] = 0
+        if data[1] in gtex_id_to_ancestry_labels and gtex_id_to_ancestry_labels[data[1]] == '3':
+            dicti[data[1]] = 0
     f.close()
     return dicti
+
+def load_in_ancestry_labels(gtex_subject_attributes_file):
+	f = gzip.open(gtex_subject_attributes_file, 'rt')
+	mapping = {}
+	arr = []
+	for line in f:
+		line = line.rstrip()
+		if line.startswith('#'):
+			continue
+		if line == '':
+			continue
+		if line.startswith('dbGaP_S'):
+			continue
+		data = line.split('\t')
+		'''
+		if len(data) != 190:
+			print('assumption eroror')
+			pdb.set_trace()
+		'''
+		subject_id = data[1]
+		race = data[5]
+		if subject_id in mapping:
+			print('asssumption erororo')
+			pdb.set_trace()
+		mapping[subject_id] = race
+		arr.append(race)
+	f.close()
+	arr = np.asarray(arr)
+	return mapping
 
 def main():
     args = parse_args()
@@ -390,13 +422,17 @@ def main():
     gtex_v8_eqtl_expression_matrices_dir = args.gtex_v8_eqtl_expression_matrices_dir
     xcell_ct_proportions_file = args.xcell_ct_proportions_file
     gtex_sample_attributes_file = args.gtex_sample_attributes_file
+    gtex_subject_attributes_file = args.gtex_subject_attributes_file
     gtex_covariate_dir = args.gtex_covariate_dir
     processed_expression_dir = args.processed_expression_dir
     tissue_name = args.tissue_name
     valid_individuals_file = args.valid_individuals_file
 
+    # Load in ancestry labels
+    gtex_id_to_ancestry_labels = load_in_ancestry_labels(gtex_subject_attributes_file)
+
     # Extract dictionary list of genotyped individuals that we will allow for downstream processing
-    valid_individuals = extract_valid_gtex_genotyped_individuals(valid_individuals_file)
+    valid_individuals = extract_valid_gtex_genotyped_individuals(valid_individuals_file, gtex_id_to_ancestry_labels)
     
     # Extract gtex individual IDs for the tissue of interest
     ordered_eqtl_indi_ids, ordered_eqtl_gene_names, eqtl_gene_dictionary, eqtl_indi_dictionary, gene_to_position = load_in_eqtl_genes_and_tissues(gtex_v8_eqtl_expression_matrices_dir + tissue_name + '.v8.normalized_expression.bed.gz', valid_individuals)
