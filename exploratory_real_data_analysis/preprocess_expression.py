@@ -315,7 +315,7 @@ def generate_qtl_covariates_in_tissue_of_interest(tissue_covariate_file, tissue_
     f.close()
 
     f = open(tissue_covariate_file)
-    t = gzip.open(tissue_covariate_output_file, 'wt')
+    t = open(tissue_covariate_output_file, 'w')
     head_count = 0
     for line in f:
         line = line.rstrip()
@@ -337,7 +337,7 @@ def generate_qtl_covariates_in_tissue_of_interest(tissue_covariate_file, tissue_
             if np.array_equal(ordered_indi_ids, sample_ids[remapping]) == False:
                 print('assumption error: individual IDs in covariate file do not match individual IDs in tissue gene reads file')
                 pdb.set_trace()
-            t.write(data[0] + '\t' + '\t'.join(ordered_indi_ids) + '\n')
+            t.write('\t' + '\t'.join(ordered_indi_ids) + '\n')
             continue
         values = np.asarray(data[1:])[remapping]
         t.write(data[0] + '\t' + '\t'.join(values) + '\n')
@@ -350,7 +350,11 @@ def get_header_individual_ids(filer, n_meta=1):
     # n_meta is the number of leading (non-sample) columns: 1 for the xCell/covariate
     # files (single label column), 4 for the normalized-expression files
     # (#chr, start, end, gene_id).
-    f = gzip.open(filer, 'rt')
+    # Some outputs are gzipped and some are plain text, so pick the opener from the suffix.
+    if filer.endswith('.gz'):
+        f = gzip.open(filer, 'rt')
+    else:
+        f = open(filer)
     header = f.readline().rstrip().split('\t')
     f.close()
     return np.asarray(header[n_meta:])
@@ -465,7 +469,7 @@ def main():
 
     # Get qtl covariates for the tissue of interest
     tissue_covariate_file = gtex_covariate_dir + tissue_name + '.v8.covariates.txt'
-    tissue_covariate_output_file = processed_expression_dir + tissue_name + '.covariates.txt.gz'
+    tissue_covariate_output_file = processed_expression_dir + tissue_name + '.covariates.txt'
     generate_qtl_covariates_in_tissue_of_interest(tissue_covariate_file, tissue_covariate_output_file, tissue_gene_reads_file)
 
     # Double check individual IDs are in the same order and length across all generated files.
@@ -476,6 +480,7 @@ def main():
         (tissue_log_tmm_unstandardized_file, 4),
         (tissue_int_file, 4),
         (xcell_ct_proportions_tissue_file, 1),
+        (binary_neutrophil_output_file, 1),
         (tissue_covariate_output_file, 1),
     ])
 

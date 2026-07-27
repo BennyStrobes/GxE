@@ -120,8 +120,9 @@ gene_category_file="none"
 tissue_expression_matrix_file="${processed_expression_dir}/${tissue_name}.${normalization_method}.txt.gz"
 genotype_stem=${processed_genotype_dir}"gtex_v9_eqtl_chr"
 E_var_file=${processed_expression_dir}${tissue_name}".xcell_"${cell_type}"_binary.txt"
+covariate_file="${processed_expression_dir}/${tissue_name}.covariates.txt"
 pa_h2_output_stem=${pa_h2_results_dir}"pa_h2_results_"${tissue_name}"_"${normalization_method}"_"$cell_type"_all_genes"
-sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file
+sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file $covariate_file
 
 ## INT based normalization
 tissue_name="Whole_Blood"
@@ -131,9 +132,10 @@ normalization_method="inverse_normal_transform"
 gene_category_file="none"
 tissue_expression_matrix_file="${processed_expression_dir}/${tissue_name}.${normalization_method}.txt.gz"
 genotype_stem=${processed_genotype_dir}"gtex_v9_eqtl_chr"
+covariate_file="${processed_expression_dir}/${tissue_name}.covariates.txt"
 E_var_file=${processed_expression_dir}${tissue_name}".xcell_"${cell_type}"_binary.txt"
 pa_h2_output_stem=${pa_h2_results_dir}"pa_h2_results_"${tissue_name}"_"${normalization_method}"_"$cell_type"_all_genes"
-sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file
+sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file $covariate_file
 
 # Stratified by gene annotations
 tissue_name="Whole_Blood"
@@ -145,9 +147,10 @@ for gene_category_bin in "0" "1" "2" "3" "4"; do
     gene_category_file=${gene_categories_dir}"gene_categories_"${tissue_name}"_"${cell_type}"_"$gene_category_statistic"_based_categories_category_"$gene_category_bin".txt"
     tissue_expression_matrix_file="${processed_expression_dir}/${tissue_name}.${normalization_method}.txt.gz"
     genotype_stem=${processed_genotype_dir}"gtex_v9_eqtl_chr"
+    covariate_file="${processed_expression_dir}/${tissue_name}.covariates.txt"
     E_var_file=${processed_expression_dir}${tissue_name}".xcell_"${cell_type}"_binary.txt"
     pa_h2_output_stem=${pa_h2_results_dir}"pa_h2_results_"${tissue_name}"_"${normalization_method}"_"$cell_type"_"${gene_category_statistic}"_"${gene_category_bin}
-    sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file
+    sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file $covariate_file
 done
 
 tissue_name="Whole_Blood"
@@ -159,13 +162,12 @@ for gene_category_bin in "0" "1" "2" "3" "4"; do
     gene_category_file=${gene_categories_dir}"gene_categories_"${tissue_name}"_"${cell_type}"_"$gene_category_statistic"_based_categories_category_"$gene_category_bin".txt"
     tissue_expression_matrix_file="${processed_expression_dir}/${tissue_name}.${normalization_method}.txt.gz"
     genotype_stem=${processed_genotype_dir}"gtex_v9_eqtl_chr"
+    covariate_file="${processed_expression_dir}/${tissue_name}.covariates.txt"
     E_var_file=${processed_expression_dir}${tissue_name}".xcell_"${cell_type}"_binary.txt"
     pa_h2_output_stem=${pa_h2_results_dir}"pa_h2_results_"${tissue_name}"_"${normalization_method}"_"$cell_type"_"${gene_category_statistic}"_"${gene_category_bin}
-    sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file
+    sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file $covariate_file
 done
 fi
-
-
 
 
 
