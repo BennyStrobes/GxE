@@ -31,6 +31,8 @@ output_root="/lab-share/CHIP-Strober-e2/Public/ben/gxe/exploratory_real_data_ana
 
 processed_expression_dir="${output_root}processed_expression/"
 
+downsampling_processed_expression_dir="${output_root}downsampling_processed_expression/"
+
 processed_genotype_dir=${output_root}"processed_genotype/"
 
 gene_categories_dir=${output_root}"gene_categories/"
@@ -52,8 +54,6 @@ conda activate plink_env
 python quick_reprocessing_of_genotype_data.py $gtex_input_genotype_dir $processed_genotype_dir
 fi
 
-echo "CONSIDER Experimenting with how to handle covariates"
-
 
 ##############################
 # Preprocess expression data (with various normalizations and filtering))
@@ -72,14 +72,22 @@ sh preprocess_expression.sh \
 fi
 
 ###############################
+# Run exploratory analysis where we down-sample expression by randomly sampling read-counts
+tissue_read_count_file=${processed_expression_dir}${tissue_name}".gene_reads.filtered.txt.gz"
+if false; then
+for downsampling_percentage in "0.2" "0.4" "0.6" "0.8" "1.0"; do
+    sh run_downsampling_expression_quantification.sh $tissue_read_count_file $downsampling_percentage $downsampling_processed_expression_dir${tissue_name}
+done
+fi
+
+
+###############################
 # Extract per-gene variance stratified by E-variable
 tissue_name="Whole_Blood"
 cell_type="Neutrophils"
 tissue_xcell_ct_proportions_file="${processed_expression_dir}/${tissue_name}.xcell_ct_proportions.txt.gz"
 normalization_methods="log_tmm log_tmm.unstandardized inverse_normal_transform"
 if false; then
-source ~/.bashrc
-conda activate plink_env
 for normalization_method in ${normalization_methods}; do
     tissue_expression_matrix_file="${processed_expression_dir}/${tissue_name}.${normalization_method}.txt.gz"
     per_gene_variance_output_file="${processed_expression_dir}/${tissue_name}.${normalization_method}.${cell_type}.per_gene_variance.txt"
@@ -168,6 +176,35 @@ for gene_category_bin in "0" "1" "2" "3" "4"; do
     sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file $covariate_file
 done
 fi
+
+
+###############################
+# Run PA-H2 regression on log_tmm downsampled data
+## Log-TMM based normalization
+tissue_name="Whole_Blood"
+cell_type="Neutrophils"
+normalization_method="log_tmm"
+# files that do not depend on the downsampling percentage
+gene_category_file="none"
+genotype_stem=${processed_genotype_dir}"gtex_v9_eqtl_chr"
+E_var_file=${processed_expression_dir}${tissue_name}".xcell_"${cell_type}"_binary.txt"
+covariate_file="${processed_expression_dir}/${tissue_name}.covariates.txt"
+if false; then
+for downsampling_percentage in "0.2" "0.4" "0.6" "0.8" "1.0"; do
+    # All genes (no lowly-expressed-gene filter)
+    tissue_expression_matrix_file=${downsampling_processed_expression_dir}${tissue_name}".downsample_"${downsampling_percentage}"."${normalization_method}".txt.gz"
+    pa_h2_output_stem=${pa_h2_results_dir}"pa_h2_results_"${tissue_name}"_downsample_"${downsampling_percentage}"_"${normalization_method}"_"$cell_type"_all_genes"
+    sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file $covariate_file
+
+    # Lowly-expressed genes removed
+    tissue_expression_matrix_file=${downsampling_processed_expression_dir}${tissue_name}".downsample_"${downsampling_percentage}".filtered_genes."${normalization_method}".txt.gz"
+    pa_h2_output_stem=${pa_h2_results_dir}"pa_h2_results_"${tissue_name}"_downsample_"${downsampling_percentage}"_filtered_genes_"${normalization_method}"_"$cell_type"_all_genes"
+    sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file $covariate_file
+done
+fi
+
+
+
 
 
 
