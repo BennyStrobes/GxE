@@ -23,8 +23,20 @@ python ${PA_H2_code_dir}PA_h2.py \
 	--covariate-file $covariate_file \
 	--plink2-per-chrom-stem $plink2_genotype_stem \
 	--gene-list $gene_category_file \
-	--output-stem $output_stem"_with_covariates"
+	--output-stem $output_stem
 
+# Permuted run
+python ${PA_H2_code_dir}PA_h2.py \
+	--expression-bed $expression_bed_file \
+	--binary-E-interaction-covariate-file $E_var_file \
+	--covariate-file $covariate_file \
+	--plink2-per-chrom-stem $plink2_genotype_stem \
+	--gene-list $gene_category_file \
+	--output-stem $output_stem"_permuted" \
+    --permute "True"
+
+
+if false; then
 # Default run
 python ${PA_H2_code_dir}PA_h2.py \
 	--expression-bed $expression_bed_file \
@@ -42,5 +54,4 @@ python ${PA_H2_code_dir}PA_h2.py \
 	--gene-list $gene_category_file \
 	--output-stem $output_stem"_permuted" \
     --permute "True"
-
-
+fi

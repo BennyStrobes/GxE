@@ -69,11 +69,17 @@ def main():
     # First, extract the binary E-variable (cell type) from the xCell cell-type proportions file
     E_variable, E_variable_sample_names = extract_binary_E_variable_from_xcell(xcell_ct_proportions_file, cell_type)
 
+    # Number of individuals in each E stratum. These are the same for every gene, but are
+    # written per row so downstream analyses (eg. a two-sample test of mean_E1 vs mean_E0)
+    # have everything they need from this file alone.
+    n_E0 = np.sum(E_variable == 0)
+    n_E1 = np.sum(E_variable == 1)
+
     var_diff = []
     mean_diff = []
     rat = []
     t = open(per_gene_variance_output_file, 'w')
-    t.write('gene_name\tvar_E0\tvar_E1\tmean_E0\tmean_E1\n')
+    t.write('gene_name\tvar_E0\tvar_E1\tmean_E0\tmean_E1\tn_E0\tn_E1\n')
     f = gzip.open(expression_matrix_file, 'rt')
     head_count = 0
     for line in f:
@@ -98,7 +104,7 @@ def main():
         mean_E1 = np.mean(expression_values[E_variable == 1])
 
 
-        t.write(f'{gene_name}\t{var_E0}\t{var_E1}\t{mean_E0}\t{mean_E1}\n')
+        t.write(f'{gene_name}\t{var_E0}\t{var_E1}\t{mean_E0}\t{mean_E1}\t{n_E0}\t{n_E1}\n')
         rat.append(var_E1 / var_E0)
         var_diff.append(var_E1 - var_E0)
         mean_diff.append(mean_E1 - mean_E0)
