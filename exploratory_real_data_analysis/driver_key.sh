@@ -20,7 +20,8 @@ PA_H2_code_dir="/lab-share/CHIP-Strober-e2/Public/ben/gxe/PA-h2/"
 # Gtex subject attributes (has ancestry)
 gtex_subject_attributes_file="/lab-share/CHIP-Strober-e2/Public/GTEx/genotype_dbgap_download/phs000424.v11.pht002742.v9.p2.c1.GTEx_Subject_Phenotypes.GRU.txt.gz"
 
-
+# sc gene features (1k1k)
+sc_1k1k_gene_features_file="/lab-share/CHIP-Strober-e2/Public/ben/gxe/exploratory_real_data_analysis/input_data/sc_1k1k_gene_features.txt"
 
 
 
@@ -38,6 +39,8 @@ processed_genotype_dir=${output_root}"processed_genotype/"
 gene_categories_dir=${output_root}"gene_categories/"
 
 pa_h2_results_dir=${output_root}"pa_h2_results/"
+
+visualize_gene_features_dir=${output_root}"visualize_gene_features/"
 
 
 
@@ -73,12 +76,17 @@ fi
 
 ###############################
 # Run exploratory analysis where we down-sample expression by randomly sampling read-counts
+# Both symetric and asymetric downsampling 
+cell_type="Neutrophils"
+E_var_file=${processed_expression_dir}${tissue_name}".xcell_"${cell_type}"_binary.txt"
 tissue_read_count_file=${processed_expression_dir}${tissue_name}".gene_reads.filtered.txt.gz"
 if false; then
-for downsampling_percentage in "0.2" "0.4" "0.6" "0.8" "1.0"; do
-    sh run_downsampling_expression_quantification.sh $tissue_read_count_file $downsampling_percentage $downsampling_processed_expression_dir${tissue_name}
+for downsampling_percentage in "0.05" "0.1" "0.2" "0.4" "0.6" "0.8" "1.0"; do
+    sbatch run_downsampling_expression_quantification.sh $tissue_read_count_file $downsampling_percentage $downsampling_processed_expression_dir${tissue_name} $E_var_file $cell_type
 done
 fi
+
+
 
 
 ###############################
@@ -99,6 +107,30 @@ for normalization_method in ${normalization_methods}; do
         --per_gene_variance_output_file ${per_gene_variance_output_file}
 done
 fi
+
+
+# Same, but for each of the asymmetrically-downsampled expression matrices.
+# The E-variable here is re-derived from the xCell proportions by the same median split
+# that decided which individuals got downsampled, so the strata line up.
+if false; then
+normalization_method="log_tmm.unstandardized"
+asymmetric_expression_stem=${downsampling_processed_expression_dir}${tissue_name}"_"${cell_type}"_asymmetric"
+for downsampling_percentage in "0.05" "0.1""0.2" "0.4" "0.6" "0.8" "1.0"; do
+    echo $downsampling_percentage
+    for gene_set_tag in "" ".filtered_genes"; do
+        tissue_expression_matrix_file=${asymmetric_expression_stem}".downsample_"${downsampling_percentage}${gene_set_tag}"."${normalization_method}".txt.gz"
+        per_gene_variance_output_file=${asymmetric_expression_stem}".downsample_"${downsampling_percentage}${gene_set_tag}"."${normalization_method}"."${cell_type}".per_gene_variance.txt"
+        python compute_per_gene_variance_stratified_by_e_variable.py \
+            --expression_matrix_file ${tissue_expression_matrix_file} \
+            --xcell_ct_proportions_file ${tissue_xcell_ct_proportions_file} \
+            --tissue_name ${tissue_name} \
+            --cell_type ${cell_type} \
+            --per_gene_variance_output_file ${per_gene_variance_output_file}
+    done
+done
+fi
+
+
 
 
 ###############################
@@ -244,7 +276,7 @@ gene_category_file="none"
 genotype_stem=${processed_genotype_dir}"gtex_v9_eqtl_chr"
 E_var_file=${processed_expression_dir}${tissue_name}".xcell_"${cell_type}"_binary.txt"
 covariate_file="${processed_expression_dir}/${tissue_name}.covariates.txt"
-for downsampling_percentage in "0.2" "0.4" "0.6" "0.8" "1.0"; do
+for downsampling_percentage in "0.05" "0.1" "0.2" "0.4" "0.6" "0.8" "1.0"; do
     # All genes (no lowly-expressed-gene filter)
     tissue_expression_matrix_file=${downsampling_processed_expression_dir}${tissue_name}".downsample_"${downsampling_percentage}"."${normalization_method}".txt.gz"
     pa_h2_output_stem=${pa_h2_results_dir}"pa_h2_results_"${tissue_name}"_downsample_"${downsampling_percentage}"_"${normalization_method}"_"$cell_type"_all_genes"
@@ -253,6 +285,35 @@ for downsampling_percentage in "0.2" "0.4" "0.6" "0.8" "1.0"; do
     # Lowly-expressed genes removed
     tissue_expression_matrix_file=${downsampling_processed_expression_dir}${tissue_name}".downsample_"${downsampling_percentage}".filtered_genes."${normalization_method}".txt.gz"
     pa_h2_output_stem=${pa_h2_results_dir}"pa_h2_results_"${tissue_name}"_downsample_"${downsampling_percentage}"_filtered_genes_"${normalization_method}"_"$cell_type"_all_genes"
+    sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file $covariate_file
+done
+fi
+
+
+
+###############################
+# Run PA-H2 regression on log_tmm assymetric downsampled data
+## Log-TMM based normalization
+tissue_name="Whole_Blood"
+cell_type="Neutrophils"
+normalization_method="log_tmm"
+# files that do not depend on the downsampling percentage
+gene_category_file="none"
+genotype_stem=${processed_genotype_dir}"gtex_v9_eqtl_chr"
+E_var_file=${processed_expression_dir}${tissue_name}".xcell_"${cell_type}"_binary.txt"
+covariate_file="${processed_expression_dir}/${tissue_name}.covariates.txt"
+# Only the E==1 individuals were downsampled, so these matrices carry the "_${cell_type}_asymmetric" tag
+asymmetric_expression_stem=${downsampling_processed_expression_dir}${tissue_name}"_"${cell_type}"_asymmetric"
+if false; then
+for downsampling_percentage in "0.05" "0.1" "0.2" "0.4" "0.6" "0.8" "1.0"; do
+    # All genes (no lowly-expressed-gene filter)
+    tissue_expression_matrix_file=${asymmetric_expression_stem}".downsample_"${downsampling_percentage}"."${normalization_method}".txt.gz"
+    pa_h2_output_stem=${pa_h2_results_dir}"pa_h2_results_"${tissue_name}"_asymmetric_downsample_"${downsampling_percentage}"_"${normalization_method}"_"$cell_type"_all_genes"
+    sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file $covariate_file
+
+    # Lowly-expressed genes removed
+    tissue_expression_matrix_file=${asymmetric_expression_stem}".downsample_"${downsampling_percentage}".filtered_genes."${normalization_method}".txt.gz"
+    pa_h2_output_stem=${pa_h2_results_dir}"pa_h2_results_"${tissue_name}"_asymmetric_downsample_"${downsampling_percentage}"_filtered_genes_"${normalization_method}"_"$cell_type"_all_genes"
     sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file $covariate_file
 done
 fi
@@ -277,12 +338,13 @@ fi
 
 ###############################
 # Visualize PA-H2 results across the gene category bins
+if false; then
 tissue_name="Whole_Blood"
 cell_type="Neutrophils"
 normalization_method="log_tmm"
 gene_category_statistics="mean,abs_var_diff,abs_de_t,pred_abs_var_diff"
 num_gene_category_bins="10"
-downsampling_percentages="0.2,0.4,0.6,0.8,1.0"
+downsampling_percentages="0.05,0.1,0.2,0.4,0.6,0.8,1.0"
 comparison_normalization_methods="log_tmm,inverse_normal_transform"
 Rscript visualize_pa_h2.R \
     ${pa_h2_results_dir} \
@@ -294,3 +356,21 @@ Rscript visualize_pa_h2.R \
     ${downsampling_percentages} \
     ${comparison_normalization_methods} \
     ${pa_h2_results_dir}
+fi
+
+
+if false; then
+tissue_name="Whole_Blood"
+cell_type="Neutrophils"
+normalization_method="log_tmm.unstandardized"
+per_gene_variance_output_file="${processed_expression_dir}/${tissue_name}.${normalization_method}.${cell_type}.per_gene_variance.txt"
+# File stem for the asymmetric-downsampling per-gene variance files. The R script globs
+# "<stem>.downsample_*per_gene_variance.txt" and recovers the downsampling percentage and
+# the gene set from each file name, so no percentage list is needed here.
+asymmetric_per_gene_variance_stem=${downsampling_processed_expression_dir}${tissue_name}"_"${cell_type}"_asymmetric"
+Rscript visualize_gene_features.R \
+    ${sc_1k1k_gene_features_file} \
+    $per_gene_variance_output_file \
+    ${visualize_gene_features_dir} \
+    ${asymmetric_per_gene_variance_stem}
+fi

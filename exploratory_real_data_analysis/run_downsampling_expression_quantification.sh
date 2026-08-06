@@ -7,12 +7,15 @@
 tissue_read_count_file="${1}"
 downsampling_percentage="${2}"
 downsampling_output_root="${3}"
+E_var_file="${4}"
+cell_type="${5}"
 
 source ~/.bashrc
 conda activate plink_env
 
 
 echo $downsampling_percentage
-
 python run_downsampling_expression_quantification.py ${tissue_read_count_file} ${downsampling_percentage} ${downsampling_output_root}
 
+
+python run_asymetric_downsampling_expression_quantification.py ${tissue_read_count_file} ${downsampling_percentage} ${downsampling_output_root}"_"${cell_type}"_asymmetric" $E_var_file

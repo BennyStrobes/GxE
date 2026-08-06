@@ -22,10 +22,12 @@ pa_h2_summary_file <- function(pa_h2_results_dir, tissue_name, normalization_met
 }
 
 
-pa_h2_downsample_summary_file <- function(pa_h2_results_dir, tissue_name, normalization_method, cell_type, downsampling_percentage, gene_filter_tag) {
+pa_h2_downsample_summary_file <- function(pa_h2_results_dir, tissue_name, normalization_method, cell_type, downsampling_percentage, gene_filter_tag, downsample_tag="downsample") {
 	# The downsampled stems put the downsampling percentage (and the gene-filter tag) ahead of
-	# the normalization method, so they do not share a shape with pa_h2_summary_file
-	return(paste0(pa_h2_results_dir, "pa_h2_results_", tissue_name, "_downsample_", downsampling_percentage, gene_filter_tag, "_", normalization_method, "_", cell_type, "_all_genes_PA_h2_summary.txt"))
+	# the normalization method, so they do not share a shape with pa_h2_summary_file.
+	# downsample_tag selects the symmetric ("downsample") or asymmetric ("asymmetric_downsample")
+	# sweep; the two differ only by that piece of the stem.
+	return(paste0(pa_h2_results_dir, "pa_h2_results_", tissue_name, "_", downsample_tag, "_", downsampling_percentage, gene_filter_tag, "_", normalization_method, "_", cell_type, "_all_genes_PA_h2_summary.txt"))
 }
 
 
@@ -89,7 +91,7 @@ make_pa_h2_bin_plot <- function(df, gene_category_statistic, all_gene_estimate, 
 }
 
 
-load_pa_h2_across_downsampling <- function(pa_h2_results_dir, tissue_name, normalization_method, cell_type, downsampling_percentages, variance_class) {
+load_pa_h2_across_downsampling <- function(pa_h2_results_dir, tissue_name, normalization_method, cell_type, downsampling_percentages, variance_class, downsample_tag="downsample") {
 	# Both gene sets are run at every downsampling percentage, so load them together and keep
 	# the gene set as a column to group on
 	gene_set_tags <- c("all genes"="", "lowly expressed genes removed"="_filtered_genes")
@@ -99,7 +101,7 @@ load_pa_h2_across_downsampling <- function(pa_h2_results_dir, tissue_name, norma
 		gene_filter_tag <- gene_set_tags[[gene_set_iter]]
 		for (downsampling_iter in 1:length(downsampling_percentages)) {
 			downsampling_percentage <- downsampling_percentages[downsampling_iter]
-			file_name <- pa_h2_downsample_summary_file(pa_h2_results_dir, tissue_name, normalization_method, cell_type, downsampling_percentage, gene_filter_tag)
+			file_name <- pa_h2_downsample_summary_file(pa_h2_results_dir, tissue_name, normalization_method, cell_type, downsampling_percentage, gene_filter_tag, downsample_tag)
 			df <- load_variance_class(file_name, variance_class)
 			if (is.null(df)) {
 				next
@@ -152,7 +154,7 @@ make_pa_h2_normalization_plot <- function(df, y_label) {
 }
 
 
-make_pa_h2_downsample_plot <- function(df, all_gene_estimate, y_label) {
+make_pa_h2_downsample_plot <- function(df, all_gene_estimate, y_label, title="PA-H2 across sequencing depth", x_label="Downsampling percentage of reads") {
 	dodge <- position_dodge(width=0.9)
 
 	pp <- ggplot(df, aes(x=downsampling_percentage, y=variance_estimate, fill=gene_set)) +
@@ -161,7 +163,7 @@ make_pa_h2_downsample_plot <- function(df, all_gene_estimate, y_label) {
 		scale_x_discrete(drop=FALSE) +
 		scale_fill_manual(values=c("grey", "steelblue2")) +
 		figure_theme() +
-		labs(x="Downsampling percentage of reads", y=y_label, fill="", title="PA-H2 across sequencing depth")
+		labs(x=x_label, y=y_label, fill="", title=title)
 
 	if (is.null(all_gene_estimate) == FALSE) {
 		pp <- pp + geom_hline(yintercept=all_gene_estimate, linetype=2)
@@ -233,6 +235,21 @@ if (is.null(downsample_df)) {
 	downsample_output_file <- paste0(visualization_output_stem, "pa_h2_", variance_class, "_by_downsampling_percentage.pdf")
 	ggsave(downsample_pp, file=downsample_output_file, width=7.2, height=3.3, units="in")
 	print(downsample_output_file)
+}
+
+
+#####################
+# Separate figure: across sequencing depth for the ASYMMETRIC downsampling sweep, where only
+# the E==1 (high cell-type proportion) individuals had their reads thinned
+#####################
+asymmetric_downsample_df <- load_pa_h2_across_downsampling(pa_h2_results_dir, tissue_name, normalization_method, cell_type, downsampling_percentages, variance_class, "asymmetric_downsample")
+if (is.null(asymmetric_downsample_df)) {
+	print("WARNING: no asymmetric downsampled results found; skipping the asymmetric downsampling figure")
+} else {
+	asymmetric_downsample_pp <- make_pa_h2_downsample_plot(asymmetric_downsample_df, all_gene_estimate, y_label, "PA-H2 across sequencing depth (asymmetric downsampling)", paste0("Downsampling percentage of reads in high-", cell_type, " individuals"))
+	asymmetric_downsample_output_file <- paste0(visualization_output_stem, "pa_h2_", variance_class, "_by_asymmetric_downsampling_percentage.pdf")
+	ggsave(asymmetric_downsample_pp, file=asymmetric_downsample_output_file, width=7.2, height=3.3, units="in")
+	print(asymmetric_downsample_output_file)
 }
 
 
