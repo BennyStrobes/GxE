@@ -39,7 +39,8 @@ for simulation_iter in $(seq 1 ${n_simulations}); do
 done
 fi
 
+if false; then
 source ~/.bashrc
 conda activate plink_env
 Rscript visualize_simulation_results.R ${simulation_results_dir} ${visualization_results_dir} ${simulated_data_dir}
-
+fi
