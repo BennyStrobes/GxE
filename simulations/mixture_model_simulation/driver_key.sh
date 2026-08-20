@@ -33,6 +33,13 @@ n_tests=2000
 e_variable_ratio=0.4
 
 # Loop through simulation iterations (one cluster job per iteration)
+if false; then
 for simulation_iter in $(seq 1 ${n_simulations}); do
 	sbatch run_single_simulation.sh ${simulation_iter} ${eqtl_sample_size} ${n_tests} ${e_variable_ratio} ${simulated_data_dir} ${simulation_results_dir}
 done
+fi
+
+source ~/.bashrc
+conda activate plink_env
+Rscript visualize_simulation_results.R ${simulation_results_dir} ${visualization_results_dir} ${simulated_data_dir}
+
