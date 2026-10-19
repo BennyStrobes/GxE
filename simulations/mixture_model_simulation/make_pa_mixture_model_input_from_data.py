@@ -141,6 +141,22 @@ def residualize_and_standardize(xx, design_mat):
     return (xx - np.mean(xx))/np.std(xx)
 
 
+def residualize_and_scale_expression(expr, genotype, EE, design_mat):
+    # Regress out covariates (design_mat includes intercept) and scale expression so that its residual variance
+    # from a global fit of y ~ covariates + g + E + g*E is one.
+    # Scaling by total expression variance instead makes the scale depend on the test's own genetic effect size,
+    # which biases the estimated PA fraction (downward, with genotype-residualized S)
+    if design_mat is None:
+        design_mat = np.ones((len(expr), 1))
+    XX = np.hstack((design_mat, np.column_stack((genotype, EE, genotype * EE))))
+    coef = np.linalg.lstsq(XX, expr, rcond=None)[0]
+    residual_sd = np.sqrt(np.sum(np.square(expr - np.dot(XX, coef))) / (len(expr) - XX.shape[1]))
+
+    coef = np.linalg.lstsq(design_mat, expr, rcond=None)[0]
+    expr_r = expr - np.dot(design_mat, coef)
+    return (expr_r - np.mean(expr_r))/residual_sd
+
+
 def mean_impute_missing_genotypes(G):
     # G: (num_samples X num_variants). Missing genotypes are encoded as -9
     missing = G < 0
@@ -373,9 +389,9 @@ def main():
                 print('Warning: skipping ' + gene_id + ':' + variant_id + ' because genotype or expression has zero variance')
                 continue
 
-            # Regress out covariates and standardize expression and genotype globally
+            # Regress out covariates, standardize genotype globally, and scale expression to unit residual variance
             std_genotype = residualize_and_standardize(genotype, design_mat)
-            std_expr = residualize_and_standardize(expr, design_mat)
+            std_expr = residualize_and_scale_expression(expr, genotype, EE, design_mat)
 
             pair_results[pair_index] = compute_test_summary_stats(std_genotype, std_expr, EE)
 

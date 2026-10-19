@@ -16,7 +16,7 @@ A tab-delimited file with a header row and one row per test:
 
 Notes:
 - All quantities should be computed from within-bin regressions that include an intercept.
-- Expression should be mean 0 and variance 1 per gene globally (across both bins) before computing the summary statistics.
+- Expression should be mean 0 per gene and scaled so that its residual variance from a global (across both bins) fit of `y ~ g + E + g*E` is 1. Scaling instead to total variance 1 makes each test's scale depend on its own genetic effect size, which biases the estimated PA fraction (in simulations: downward by ~0.02-0.05 with genotype-residualized S).
 - Genotype should have mean 0 and variance 1 globally pefore createing summary stat
 - `S1`/`S2` should be the standard deviation within bins. Potentially it should be the *genotype-residualized* within-bin SDs (the residual SD from the within-bin regression), not the raw within-bin expression SDs; raw SDs absorb bin-specific genetic variance and upwardly bias the estimated PA fraction.
 
@@ -38,7 +38,7 @@ python make_pa_mixture_model_input_from_data.py \
 
 - `--variant-gene-pairs-file`: tab-delimited with a header; the first two columns are gene id and variant id (one test per line). A tensorQTL `cis_qtl_top_assoc` file (filtered to significant genes) can be passed directly.
 - If `--variant-gene-pairs-file` is `none` (default), pairs are identified with a cis interaction-QTL scan: for every autosomal gene, each cis variant (within `--cis-radius`, default 500kb of the TSS, as in `PA_h2.py`; MAF >= `--min-maf-per-bin`, default 0.05, in each E bin) is tested for the genotype x E term in `y ~ g + E + g*E + covariates`. The top variant per gene is kept, its p-value is Bonferroni corrected across the gene's cis variants, and genes with Benjamini-Hochberg q < `--interaction-fdr` (default 0.05) are used as pairs. All tested genes are written to `<output_stem>_interaction_qtl_top_per_gene.txt` (its first two columns can be reused as a pairs file). Note that pairs are selected and then estimated on the same samples.
-- For each pair, covariates (if provided) are regressed out of expression and genotype across all samples, both are then standardized across all samples, and per-bin statistics are computed (bin 1: E == 0, bin 2: E == 1).
+- For each pair, covariates (if provided) are regressed out of expression and genotype across all samples, genotype is then standardized across all samples, expression is scaled to unit residual variance (see notes above), and per-bin statistics are computed (bin 1: E == 0, bin 2: E == 1).
 - Outputs: `<output_stem>_pa_mixture_model_input.txt` (S = raw within-bin SD), `<output_stem>_pa_mixture_model_geno_resid_S_input.txt` (S = within-bin residual SD), and `<output_stem>_pa_mixture_model_test_key.txt` mapping `test_idx` to `gene_id` / `variant_id`.
 
 The per-bin statistics are computed in `mixture_model_input_utils.py`.
