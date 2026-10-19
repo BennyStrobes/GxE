@@ -15,6 +15,9 @@ PA_mixture_model_code_dir="${7}"
 source ~/.bashrc
 conda activate PA-h2
 
+# Stop at the first failing step (otherwise Step 2 runs on missing input files)
+set -e
+
 
 ###################
 # Step 1: Generate mixture model input

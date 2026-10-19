@@ -117,7 +117,8 @@ def load_in_pvar(pvar_path):
 
 def load_in_psam_sample_names(psam_path):
     f = open(psam_path)
-    header = f.readline().rstrip().split('\t')
+    # Header is either '#FID\tIID\t...' or '#IID\t...' (plink2 omits FID when absent)
+    header = f.readline().rstrip().lstrip('#').split('\t')
     iid_column = header.index('IID')
     sample_names = []
     for line in f:
