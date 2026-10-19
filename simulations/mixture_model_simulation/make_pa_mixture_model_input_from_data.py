@@ -42,7 +42,16 @@ def load_in_covariates(covariate_file):
 
     raw_cov = np.loadtxt(covariate_file, dtype=str, delimiter='\t', ndmin=2)
     sample_names = raw_cov[0, 1:]
+    covariate_names = raw_cov[1:, 0]
     CC = np.transpose(raw_cov[1:, 1:].astype(float))
+
+    # Filter out covariates with zero variance (redundant with the intercept)
+    keep_mask = np.std(CC, axis=0) > 0.0
+    for covariate_name in covariate_names[keep_mask == False]:
+        print('Warning: removing covariate ' + covariate_name + ' because it has zero variance')
+    CC = CC[:, keep_mask]
+    if CC.shape[1] == 0:
+        return None, sample_names
 
     return CC, sample_names
 

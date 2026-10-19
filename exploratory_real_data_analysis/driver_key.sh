@@ -17,6 +17,8 @@ gtex_input_genotype_dir="/lab-share/CHIP-Strober-e2/Public/ben/process_gtex_geno
 
 PA_H2_code_dir="/lab-share/CHIP-Strober-e2/Public/ben/gxe/PA-h2/"
 
+PA_mixture_model_code_dir="/lab-share/CHIP-Strober-e2/Public/ben/gxe/mixture_model/"
+
 # Gtex subject attributes (has ancestry)
 gtex_subject_attributes_file="/lab-share/CHIP-Strober-e2/Public/GTEx/genotype_dbgap_download/phs000424.v11.pht002742.v9.p2.c1.GTEx_Subject_Phenotypes.GRU.txt.gz"
 
@@ -39,6 +41,8 @@ processed_genotype_dir=${output_root}"processed_genotype/"
 gene_categories_dir=${output_root}"gene_categories/"
 
 pa_h2_results_dir=${output_root}"pa_h2_results/"
+
+pa_mixture_model_results_dir=${output_root}"pa_mixture_model_results/"
 
 visualize_gene_features_dir=${output_root}"visualize_gene_features/"
 
@@ -319,6 +323,26 @@ done
 fi
 
 
+
+###############################
+# Run PA mixture model
+# Step 1: generate mixture model input. Variant-gene pairs are identified with a cis interaction-QTL scan
+#         (top variant per gene, for genes with a significant interaction QTL at BH FDR < 0.05)
+# Step 2: mixture model inference
+tissue_name="Whole_Blood"
+cell_type="Neutrophils"
+genotype_stem=${processed_genotype_dir}"gtex_v9_eqtl_chr"
+E_var_file=${processed_expression_dir}${tissue_name}".xcell_"${cell_type}"_binary.txt"
+covariate_file="${processed_expression_dir}/${tissue_name}.covariates.txt"
+variant_gene_pairs_file="none"
+if false; then
+mkdir -p ${pa_mixture_model_results_dir}
+for normalization_method in "log_tmm" "inverse_normal_transform"; do
+    tissue_expression_matrix_file="${processed_expression_dir}/${tissue_name}.${normalization_method}.txt.gz"
+    pa_mixture_model_output_stem=${pa_mixture_model_results_dir}"pa_mixture_model_"${tissue_name}"_"${normalization_method}"_"${cell_type}
+    sbatch run_pa_mixture_model.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $covariate_file $variant_gene_pairs_file $pa_mixture_model_output_stem $PA_mixture_model_code_dir
+done
+fi
 
 
 
