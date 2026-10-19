@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Rscript -e 'invisible\\(parse\\(\"visualize_per_gene_variance.R\"\\)\\); cat\\(\"R: OK\\\\n\"\\)')",
+      "Bash(python3 -c ' *)",
+      "Read(//private/tmp/**)"
+    ]
+  }
+}

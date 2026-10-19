@@ -39,6 +39,7 @@ for simulation_iter in $(seq 1 ${n_simulations}); do
 done
 fi
 
+
 if false; then
 source ~/.bashrc
 conda activate plink_env
