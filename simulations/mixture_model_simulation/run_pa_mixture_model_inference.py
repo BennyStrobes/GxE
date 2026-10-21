@@ -72,10 +72,16 @@ def sample_inverse_gamma(shape_param, rate_param):
     return 1.0 / np.random.gamma(shape=shape_param, scale=1.0 / rate_param)
 
 
-def run_pa_mixture_model_inference(mixture_model_input_data, output_stem, max_iter=5000, n_burn_in_iters=4000, ig_a=1e-16, ig_b=1e-16, pi_prior_alpha=.1, pi_prior_beta=.1):
+def run_pa_mixture_model_inference(mixture_model_input_data, output_stem, max_iter=5000, n_burn_in_iters=4000, ig_a=1e-16, ig_b=1e-16, pi_prior_alpha=.1, pi_prior_beta=.1, n_warmup_iters=0):
     # ig_a, ig_b: inverse-gamma hyperprior on the effect variances (conjugate to the Gaussian effect priors)
     #             default IG(1e-3, 1e-3) is weak/near-flat; Gibbs update: IG(a + n_k/2, b + sum(effects^2)/2)
     # pi_prior_alpha, pi_prior_beta: Beta hyperprior on the mixture proportion pi (default Beta(1,1) = uniform)
+    # n_warmup_iters: for the first n_warmup_iters iterations, pi is held at its initial value and each effect variance
+    #                 is updated from all tests (not just those assigned to its component), so the variances adapt to the
+    #                 data before memberships drive them. Must be within burn-in (post burn-in samples are standard Gibbs)
+    if n_warmup_iters > n_burn_in_iters:
+        print('Fatal error: n_warmup_iters must be <= n_burn_in_iters')
+        sys.exit(1)
     model_params = initialize_model_params(mixture_model_input_data)
 
     # Unpack data
@@ -168,14 +174,25 @@ def run_pa_mixture_model_inference(mixture_model_input_data, output_stem, max_it
         ###################################################
         n_pa = np.sum(Z == 1)
         n_int = n_tests - n_pa
-        pi = np.random.beta(pi_prior_alpha + n_pa, pi_prior_beta + n_int)
+        warmup = itera < n_warmup_iters
+        if warmup == False:
+            pi = np.random.beta(pi_prior_alpha + n_pa, pi_prior_beta + n_int)
+
+        # Per-iteration diagnostics (variances shown are from the previous iteration)
+        print('iter ' + str(itera) + '\tn_pa ' + str(n_pa) + '\tpi ' + str(pi) + '\tsig_sq_eta ' + str(sig_sq_eta) + '\tsig_sq_beta ' + str(sig_sq_beta) + '\tsig_sq_gamma ' + str(sig_sq_gamma), flush=True)
 
         ###################################################
         # Step 4: Sample effect variances (inverse-gamma conjugate updates; only tests assigned to the component)
         ###################################################
-        sig_sq_eta = sample_inverse_gamma(ig_a + (0.5 * n_pa), ig_b + (0.5 * np.sum(np.square(etas[Z == 1]))))
-        sig_sq_beta = sample_inverse_gamma(ig_a + (0.5 * n_int), ig_b + (0.5 * np.sum(np.square(betas[Z == 0]))))
-        sig_sq_gamma = sample_inverse_gamma(ig_a + (0.5 * n_int), ig_b + (0.5 * np.sum(np.square(gammas[Z == 0]))))
+        if warmup:
+            # Warm-up: update each variance from all tests
+            sig_sq_eta = sample_inverse_gamma(ig_a + (0.5 * n_tests), ig_b + (0.5 * np.sum(np.square(etas))))
+            sig_sq_beta = sample_inverse_gamma(ig_a + (0.5 * n_tests), ig_b + (0.5 * np.sum(np.square(betas))))
+            sig_sq_gamma = sample_inverse_gamma(ig_a + (0.5 * n_tests), ig_b + (0.5 * np.sum(np.square(gammas))))
+        else:
+            sig_sq_eta = sample_inverse_gamma(ig_a + (0.5 * n_pa), ig_b + (0.5 * np.sum(np.square(etas[Z == 1]))))
+            sig_sq_beta = sample_inverse_gamma(ig_a + (0.5 * n_int), ig_b + (0.5 * np.sum(np.square(betas[Z == 0]))))
+            sig_sq_gamma = sample_inverse_gamma(ig_a + (0.5 * n_int), ig_b + (0.5 * np.sum(np.square(gammas[Z == 0]))))
 
         ###################################################
         # Record samples
@@ -223,6 +240,7 @@ parser.add_argument('--ig-a', type=float, default=1e-5, help='Shape parameter of
 parser.add_argument('--ig-b', type=float, default=1e-5, help='Rate parameter of the inverse-gamma hyperprior on the effect variances (default 1e-3: weak/near-flat)')
 parser.add_argument('--pi-prior-alpha', type=float, default=.1, help='Alpha parameter of the Beta hyperprior on the mixture proportion pi')
 parser.add_argument('--pi-prior-beta', type=float, default=.1, help='Beta parameter of the Beta hyperprior on the mixture proportion pi')
+parser.add_argument('--n-warmup-iters', type=int, default=0, help='Number of initial (burn-in) iterations with pi held fixed and effect variances updated from all tests')
 args = parser.parse_args()
 
 mixture_model_input_file = args.mixture_model_input_file
@@ -234,4 +252,4 @@ np.random.seed(args.seed)
 mixture_model_input_data = load_input_data(mixture_model_input_file)
 
 
-run_pa_mixture_model_inference(mixture_model_input_data, output_stem, ig_a=args.ig_a, ig_b=args.ig_b, pi_prior_alpha=args.pi_prior_alpha, pi_prior_beta=args.pi_prior_beta)
+run_pa_mixture_model_inference(mixture_model_input_data, output_stem, ig_a=args.ig_a, ig_b=args.ig_b, pi_prior_alpha=args.pi_prior_alpha, pi_prior_beta=args.pi_prior_beta, n_warmup_iters=args.n_warmup_iters)
