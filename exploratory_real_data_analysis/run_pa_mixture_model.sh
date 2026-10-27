@@ -38,20 +38,21 @@ fi
 ###################
 # Genotype-residualized S (recommended)
 if false; then
-python ${PA_mixture_model_code_dir}run_pa_mixture_model_inference.py \
+python run_pa_mixture_model_inference.py \
 	--mixture-model-input-file ${output_stem}"_pa_mixture_model_geno_resid_S_input.txt" \
 	--output-stem ${output_stem}"_geno_resid_mixture_model_results" \
 	--n-warmup-iters 100
 fi
 # Raw S (for comparison)
 if false; then
-python ${PA_mixture_model_code_dir}run_pa_mixture_model_inference.py \
+python run_pa_mixture_model_inference.py \
 	--mixture-model-input-file ${output_stem}"_pa_mixture_model_input.txt" \
 	--output-stem ${output_stem}"_mixture_model_results" \
 	--n-warmup-iters 100
 fi
 
 # Standard Gibbs cross-check (genotype-residualized S)
+if false; then
 python ${PA_mixture_model_code_dir}run_pa_mixture_model_inference_standard_gibbs.py \
 	--mixture-model-input-file ${output_stem}"_pa_mixture_model_geno_resid_S_input.txt" \
 	--output-stem ${output_stem}"_standard_gibbs_geno_resid_mixture_model_results"

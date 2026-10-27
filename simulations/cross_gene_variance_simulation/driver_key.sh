@@ -68,12 +68,11 @@ done
 fi
 
 
-
-
+if false; then
 source ~/.bashrc
 conda activate PA-h2
 python organize_pa_h2_simulation_results.py $simulation_type $simulated_data_dir $simulation_results_dir $organized_simulation_results_dir
-
+fi
 
 
 

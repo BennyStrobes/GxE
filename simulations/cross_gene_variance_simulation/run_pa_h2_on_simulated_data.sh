@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -t 0-3:00                         # Runtime in D-HH:MM format
+#SBATCH -t 0-5:00                         # Runtime in D-HH:MM format
 #SBATCH -p bch-compute                        # Partition to run in
 #SBATCH --mem=5GB 
 
@@ -18,6 +18,7 @@ conda activate PA-h2
 # Simulation sample sizes
 sample_size_arr=("100" "300")
 
+
 for sample_size in "${sample_size_arr[@]}"; do
     echo $sample_size"_"${simulation_number}
 
@@ -29,6 +30,7 @@ for sample_size in "${sample_size_arr[@]}"; do
 	expression_bed_file=${simulated_data_dir}${simulation_name_string}".expression.bed"
 	E_var_file=${simulated_data_dir}${simulation_name_string}".interaction_covariates.txt"
 
+	if false; then
 	python ${pa_h2_code_dir}PA_h2.py \
 		--expression-bed $expression_bed_file \
 		--plink2-per-chrom-stem $plink2_genotype_stem \
@@ -40,6 +42,25 @@ for sample_size in "${sample_size_arr[@]}"; do
 		--plink2-per-chrom-stem $plink2_genotype_stem \
 		--binary-E-interaction-covariate-file $E_var_file \
 		--output-stem $output_stem"_perm" \
+		--permute True
+	fi
+
+
+	# Run PA-H2 with residualized genotype
+	geno_resid_output_stem=${simulation_results_dir}${simulation_name_string}"_geno_resid"
+	python ${pa_h2_code_dir}PA_h2.py \
+		--expression-bed $expression_bed_file \
+		--plink2-per-chrom-stem $plink2_genotype_stem \
+		--binary-E-interaction-covariate-file $E_var_file \
+		--residualize-genotype \
+		--output-stem $geno_resid_output_stem
+
+	python ${pa_h2_code_dir}PA_h2.py \
+		--expression-bed $expression_bed_file \
+		--plink2-per-chrom-stem $plink2_genotype_stem \
+		--binary-E-interaction-covariate-file $E_var_file \
+		--residualize-genotype \
+		--output-stem $geno_resid_output_stem"_perm" \
 		--permute True
 
 done

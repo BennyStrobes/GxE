@@ -344,12 +344,13 @@ for normalization_method in "log_tmm" "inverse_normal_transform"; do
 done
 fi
 
-
-
+if false; then
 normalization_method="inverse_normal_transform"
     tissue_expression_matrix_file="${processed_expression_dir}/${tissue_name}.${normalization_method}.txt.gz"
     pa_mixture_model_output_stem=${pa_mixture_model_results_dir}"pa_mixture_model_"${tissue_name}"_"${normalization_method}"_"${cell_type}
     sh run_pa_mixture_model.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $covariate_file $variant_gene_pairs_file $pa_mixture_model_output_stem $PA_mixture_model_code_dir
+fi
+
 
 if false; then
 source ~/.bashrc
