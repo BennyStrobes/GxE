@@ -24,40 +24,44 @@ organized_simulation_results_dir = sys.argv[4]
 sim_values = np.arange(1,101)
 eqtl_sss = ['100', '300']
 
-t = open(organized_simulation_results_dir + 'simulation_summary.txt','w' )
-t.write('eqtl_ss\tsim_type\test\test_se\ttruth\n')
+# PA-h2 versions to summarize ('' is default; '_geno_resid' uses residualized genotype)
+pa_h2_versions = ['', '_geno_resid']
 
-for eqtl_ss in eqtl_sss:
-	sim_pa_interaction_variance_arr = []
-	est_pa_interaction_variance_arr = []
-	est_perm_pa_interaction_variance_arr = []
-	for sim_iter in sim_values:
-		# Extract simulated PA interaction variance for this sim
-		sim_data_file = simulated_data_dir + 'simulation_' + str(sim_iter) + '_sim_type_total_PA_default_N_' + eqtl_ss + '.simulation_summary.txt'
-		sim_pa_interaction_variance = np.mean((np.loadtxt(sim_data_file,dtype=str,delimiter='\t')[1:,-3]).astype(float))
+for pa_h2_version in pa_h2_versions:
+	t = open(organized_simulation_results_dir + 'simulation_summary' + pa_h2_version + '.txt','w' )
+	t.write('eqtl_ss\tsim_type\test\test_se\ttruth\n')
+
+	for eqtl_ss in eqtl_sss:
+		sim_pa_interaction_variance_arr = []
+		est_pa_interaction_variance_arr = []
+		est_perm_pa_interaction_variance_arr = []
+		for sim_iter in sim_values:
+			# Extract simulated PA interaction variance for this sim
+			sim_data_file = simulated_data_dir + 'simulation_' + str(sim_iter) + '_sim_type_total_PA_default_N_' + eqtl_ss + '.simulation_summary.txt'
+			sim_pa_interaction_variance = np.mean((np.loadtxt(sim_data_file,dtype=str,delimiter='\t')[1:,-3]).astype(float))
 
 
-		# Extract estimated PA interaction variance for this sim
-		sim_summary_file = simulation_results_dir + 'simulation_' + str(sim_iter) + '_sim_type_total_PA_default_N_' + eqtl_ss + '_PA_h2_summary.txt'
-		est_pa_interaction_variance = float(np.loadtxt(sim_summary_file,dtype=str,delimiter='\t')[3,1])
+			# Extract estimated PA interaction variance for this sim
+			sim_summary_file = simulation_results_dir + 'simulation_' + str(sim_iter) + '_sim_type_total_PA_default_N_' + eqtl_ss + pa_h2_version + '_PA_h2_summary.txt'
+			est_pa_interaction_variance = float(np.loadtxt(sim_summary_file,dtype=str,delimiter='\t')[3,1])
 
-		# Extract estimated perm PA interaction variance for this sim
-		sim_summary_file = simulation_results_dir + 'simulation_' + str(sim_iter) + '_sim_type_total_PA_default_N_' + eqtl_ss + '_perm_PA_h2_summary.txt'
-		est_perm_pa_interaction_variance = float(np.loadtxt(sim_summary_file,dtype=str,delimiter='\t')[3,1])
+			# Extract estimated perm PA interaction variance for this sim
+			sim_summary_file = simulation_results_dir + 'simulation_' + str(sim_iter) + '_sim_type_total_PA_default_N_' + eqtl_ss + pa_h2_version + '_perm_PA_h2_summary.txt'
+			est_perm_pa_interaction_variance = float(np.loadtxt(sim_summary_file,dtype=str,delimiter='\t')[3,1])
 
-		sim_pa_interaction_variance_arr.append(sim_pa_interaction_variance)
-		est_pa_interaction_variance_arr.append(est_pa_interaction_variance)
-		est_perm_pa_interaction_variance_arr.append(est_perm_pa_interaction_variance)
-	sim_pa_interaction_variance_arr = np.asarray(sim_pa_interaction_variance_arr)
-	est_pa_interaction_variance_arr = np.asarray(est_pa_interaction_variance_arr)
-	est_perm_pa_interaction_variance_arr = np.asarray(est_perm_pa_interaction_variance_arr)
+			sim_pa_interaction_variance_arr.append(sim_pa_interaction_variance)
+			est_pa_interaction_variance_arr.append(est_pa_interaction_variance)
+			est_perm_pa_interaction_variance_arr.append(est_perm_pa_interaction_variance)
+		sim_pa_interaction_variance_arr = np.asarray(sim_pa_interaction_variance_arr)
+		est_pa_interaction_variance_arr = np.asarray(est_pa_interaction_variance_arr)
+		est_perm_pa_interaction_variance_arr = np.asarray(est_perm_pa_interaction_variance_arr)
 
-	t.write(eqtl_ss + '\t' + 'real' + '\t' + str(np.mean(est_pa_interaction_variance_arr)) + '\t' + str(np.std(est_pa_interaction_variance_arr)/np.sqrt(len(est_pa_interaction_variance_arr))) + '\t' + str(np.mean(sim_pa_interaction_variance_arr)) + '\n')
-	t.write(eqtl_ss + '\t' + 'perm' + '\t' + str(np.mean(est_perm_pa_interaction_variance_arr)) + '\t' + str(np.std(est_perm_pa_interaction_variance_arr)/np.sqrt(len(est_perm_pa_interaction_variance_arr))) + '\t' + str(0.0) + '\n')
+		t.write(eqtl_ss + '\t' + 'real' + '\t' + str(np.mean(est_pa_interaction_variance_arr)) + '\t' + str(np.std(est_pa_interaction_variance_arr)/np.sqrt(len(est_pa_interaction_variance_arr))) + '\t' + str(np.mean(sim_pa_interaction_variance_arr)) + '\n')
+		t.write(eqtl_ss + '\t' + 'perm' + '\t' + str(np.mean(est_perm_pa_interaction_variance_arr)) + '\t' + str(np.std(est_perm_pa_interaction_variance_arr)/np.sqrt(len(est_perm_pa_interaction_variance_arr))) + '\t' + str(0.0) + '\n')
 
-t.close()
+	t.close()
 
-print(organized_simulation_results_dir + 'simulation_summary.txt')
+	print(organized_simulation_results_dir + 'simulation_summary' + pa_h2_version + '.txt')
 
 
 
@@ -163,23 +167,24 @@ def plot_estimates_with_ci(
 
 
 # ---- Example usage ----
-df = load_simulation_summary(organized_simulation_results_dir + 'simulation_summary.txt')
-fig, ax = plot_estimates_with_ci(
-    df,
-    truth_line=0.0016818645436700386,
-    title="Simulation estimates with 95% CI",
-)
+for pa_h2_version in pa_h2_versions:
+	df = load_simulation_summary(organized_simulation_results_dir + 'simulation_summary' + pa_h2_version + '.txt')
+	fig, ax = plot_estimates_with_ci(
+	    df,
+	    truth_line=0.0016818645436700386,
+	    title="Simulation estimates with 95% CI" + pa_h2_version,
+	)
 
-outpath = organized_simulation_results_dir + 'visualize_simulation_summary.png'
-fig.savefig(
-    outpath,
-    dpi=300,
-    bbox_inches="tight"
-)
+	outpath = organized_simulation_results_dir + 'visualize_simulation_summary' + pa_h2_version + '.png'
+	fig.savefig(
+	    outpath,
+	    dpi=300,
+	    bbox_inches="tight"
+	)
 
-plt.close(fig)
+	plt.close(fig)
 
-print(outpath)
+	print(outpath)
 
 
 

@@ -57,8 +57,6 @@ fi
 ####### Run Inference
 ##############################
 ###### Simulation parameters
-# Simulation sample sizes
-sample_size_arr=("100" "300")
 # Type of simulation
 simulation_type="total_PA"
 if false; then
@@ -66,6 +64,7 @@ for simulation_number in {1..100}; do
 	sbatch run_pa_h2_on_simulated_data.sh $simulation_number $simulation_type $simulated_data_dir $plink2_genotype_stem $simulation_results_dir $pa_h2_code_dir
 done
 fi
+
 
 
 if false; then
