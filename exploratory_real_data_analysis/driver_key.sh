@@ -182,11 +182,11 @@ fi
 
 
 ## Log-TMM based normalization
-if false; then
 tissue_name="Whole_Blood"
 cell_type="Neutrophils"
 normalization_method="log_tmm"
 # files
+if false; then
 gene_category_file="none"
 tissue_expression_matrix_file="${processed_expression_dir}/${tissue_name}.${normalization_method}.txt.gz"
 genotype_stem=${processed_genotype_dir}"gtex_v9_eqtl_chr"
@@ -208,6 +208,7 @@ E_var_file=${processed_expression_dir}${tissue_name}".xcell_"${cell_type}"_binar
 pa_h2_output_stem=${pa_h2_results_dir}"pa_h2_results_"${tissue_name}"_"${normalization_method}"_"$cell_type"_all_genes"
 sbatch run_pa_h2.sh $tissue_expression_matrix_file $genotype_stem $E_var_file $pa_h2_output_stem $PA_H2_code_dir $gene_category_file $covariate_file
 fi
+
 if false; then
 # Stratified by gene annotations
 tissue_name="Whole_Blood"

@@ -37,7 +37,7 @@ python ${PA_H2_code_dir}PA_h2.py \
     --permute "True"
 fi
 
-
+if false; then
 python ${PA_H2_code_dir}PA_h2.py \
 	--expression-bed $expression_bed_file \
 	--binary-E-interaction-covariate-file $E_var_file \
@@ -59,7 +59,27 @@ python ${PA_H2_code_dir}PA_h2.py \
 	--cross-fit-folds "3" \
 	--output-stem $output_stem"_geno_resid_cross_val_permuted" \
     --permute "True"
+fi
 
+python ${PA_H2_code_dir}PA_h2.py \
+	--expression-bed $expression_bed_file \
+	--binary-E-interaction-covariate-file $E_var_file \
+	--covariate-file $covariate_file \
+	--plink2-per-chrom-stem $plink2_genotype_stem \
+	--gene-list $gene_category_file \
+	--cross-fit-folds "3" \
+	--output-stem $output_stem"_cross_val"
+
+# Permuted run
+python ${PA_H2_code_dir}PA_h2.py \
+	--expression-bed $expression_bed_file \
+	--binary-E-interaction-covariate-file $E_var_file \
+	--covariate-file $covariate_file \
+	--plink2-per-chrom-stem $plink2_genotype_stem \
+	--gene-list $gene_category_file \
+	--cross-fit-folds "3" \
+	--output-stem $output_stem"_cross_val_permuted" \
+    --permute "True"
 
 
 if false; then
