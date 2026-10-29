@@ -24,8 +24,8 @@ organized_simulation_results_dir = sys.argv[4]
 sim_values = np.arange(1,101)
 eqtl_sss = ['100', '300']
 
-# PA-h2 versions to summarize ('' is default; '_geno_resid' uses residualized genotype)
-pa_h2_versions = ['', '_geno_resid']
+# PA-h2 versions to summarize ('' is default; '_geno_resid' uses residualized genotype; '_cross_val' uses --cross-fit-folds)
+pa_h2_versions = ['', '_geno_resid', '_cross_val', '_geno_resid_cross_val']
 
 for pa_h2_version in pa_h2_versions:
 	t = open(organized_simulation_results_dir + 'simulation_summary' + pa_h2_version + '.txt','w' )
